@@ -11,6 +11,7 @@ import { resolve, dirname } from 'node:path';
 import { Command } from 'commander';
 import type { RaceManifest, SplitsDataset } from './types.js';
 import { ingestManifest, loadManifest } from './ingest.js';
+import { fetchRaceMeta } from './scraper/runnetApi.js';
 import { analyze, buildWideTable, buildFinishRateTable } from './analysis.js';
 import { generateDashboard } from './dashboard/generate.js';
 import { toCsv } from './util/csv.js';
@@ -36,28 +37,31 @@ async function resolveDataset(
     info('入力を正規化済みデータセット(dataset)として読み込みました。');
     return json as unknown as SplitsDataset;
   }
-  if (Array.isArray(json.checkpoints)) {
+  if (Array.isArray(json.checkpoints) || json.runnetApi) {
     info('入力をマニフェスト(manifest)として取り込みます。');
     const manifest = json as unknown as RaceManifest;
-    // url 参照があってライブ取得しない設定ならスキップ警告は ingest 内で処理
+    // url / runnetApi 参照があってライブ取得しない設定ならスキップ警告は ingest 内で処理
     if (!fetchLive) {
-      const hasUrlOnly = manifest.checkpoints.some((c) => c.url && !c.html && !c.csv);
-      if (hasUrlOnly) {
-        info('url 指定の地点があります。ライブ取得するには --live を付けてください（html/csv は常に読み込みます）。');
+      const hasUrlOnly = manifest.checkpoints?.some((c) => c.url && !c.html && !c.csv) ?? false;
+      if (hasUrlOnly || manifest.runnetApi) {
+        info(
+          'url / runnetApi 指定の地点があります。ライブ取得するには --live を付けてください（html/csv は常に読み込みます）。',
+        );
       }
     }
     return ingestManifest(fetchLive ? manifest : stripUrls(manifest), { baseDir: dirname(abs) });
   }
   throw new Error(
-    '入力形式を判定できません。checkpoints を含むマニフェスト、または runners を含む dataset を指定してください。',
+    '入力形式を判定できません。checkpoints または runnetApi を含むマニフェスト、または runners を含む dataset を指定してください。',
   );
 }
 
-/** --live 無し時、html/csv が無く url のみの地点は取得しない（安全側）。 */
+/** --live 無し時、html/csv が無く url のみの地点、および runnetApi は取得しない（安全側）。 */
 function stripUrls(manifest: RaceManifest): RaceManifest {
   return {
     ...manifest,
-    checkpoints: manifest.checkpoints.map((c) =>
+    runnetApi: undefined,
+    checkpoints: manifest.checkpoints?.map((c) =>
       c.url && !c.html && !c.csv ? { ...c, url: undefined } : c,
     ),
   };
@@ -85,6 +89,18 @@ program
         dataset.runners.filter((r) => r.finished).length
       } 名`,
     );
+  });
+
+program
+  .command('runnet-categories')
+  .description(
+    'RUNNET(result.one.runnet.jp) の種目・地点一覧を表示（マニフェストの runnetApi 作成用）',
+  )
+  .argument('<raceId>', 'RUNNET raceId（例: 386774）')
+  .action(async (raceId: string) => {
+    setQuiet(program.opts().quiet);
+    const meta = await fetchRaceMeta(raceId);
+    console.log(JSON.stringify(meta, null, 2));
   });
 
 program

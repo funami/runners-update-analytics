@@ -26,7 +26,8 @@
   "license": "MIT",
   "dependencies": {
     "cheerio": "^1.0.0",
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "undici": "^7.19.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

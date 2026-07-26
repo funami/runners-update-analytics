@@ -175,10 +175,17 @@ summary{cursor:pointer;color:var(--ink2);font-size:.9rem}
 .notes ul{margin:8px 0;padding-left:20px;color:var(--ink2);font-size:.85rem}
 footer{color:var(--muted);font-size:.75rem;margin-top:28px;border-top:1px solid var(--border);padding-top:12px}
 rect,circle{transition:opacity .1s}
-rect:hover,circle:hover{opacity:.75}
+.mark{cursor:pointer}
+.mark:hover,.mark:focus{opacity:.75}
+.mark:focus{outline:none}
+.chart-tip{position:fixed;z-index:100;max-width:min(90vw,320px);
+  background:var(--ink);color:var(--page);font-size:.8rem;line-height:1.4;
+  border-radius:8px;padding:6px 10px;box-shadow:0 2px 10px rgba(0,0,0,.25);
+  pointer-events:none;white-space:nowrap}
 </style>
 </head>
 <body>
+<div id="chart-tip" class="chart-tip" role="status" hidden></div>
 <div class="wrap">
 <header>
   <div>
@@ -209,6 +216,34 @@ ${notes}
   )}）。速報値は暫定であり、確報で変動する場合があります。
 </footer>
 </div>
+<script>
+function showChartTip(evt, el) {
+  var tip = document.getElementById('chart-tip');
+  var text = el.getAttribute('data-tip');
+  if (!tip || !text) return;
+  evt.stopPropagation();
+  tip.textContent = text;
+  tip.hidden = false;
+  var pad = 12;
+  var x = (evt.clientX != null ? evt.clientX : el.getBoundingClientRect().left);
+  var y = (evt.clientY != null ? evt.clientY : el.getBoundingClientRect().top);
+  var tw = tip.offsetWidth, th = tip.offsetHeight;
+  var left = Math.min(Math.max(pad, x + pad), window.innerWidth - tw - pad);
+  var top = Math.max(pad, y - th - pad);
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+document.addEventListener('click', function () {
+  var tip = document.getElementById('chart-tip');
+  if (tip) tip.hidden = true;
+});
+document.addEventListener('keydown', function (evt) {
+  if (evt.key === 'Escape') {
+    var tip = document.getElementById('chart-tip');
+    if (tip) tip.hidden = true;
+  }
+});
+</script>
 </body>
 </html>`;
 }

@@ -21,6 +21,13 @@ import type {
 } from './types.js';
 import { parseCheckpointHtml } from './scraper/raceParser.js';
 import { fetchHtml, type FetchOptions } from './scraper/http.js';
+import {
+  RESULT_ONE_BASE,
+  athletesToSplits,
+  fetchLocationAthletes,
+  fetchRaceMeta,
+  type RunnetFetchOptions,
+} from './scraper/runnetApi.js';
 import { parseCsv } from './util/csv.js';
 import { parseTimeToSeconds } from './util/time.js';
 import { info, warn } from './util/logger.js';
@@ -120,7 +127,7 @@ export function mergeRunners(
 ): { runners: RunnerSplits[]; notes: string[] } {
   const notes: string[] = [];
   const ordered = [...tables].sort((a, b) => a.order - b.order);
-  const goalNames = new Set(ordered.filter((t) => t.goal).map((t) => t.checkpoint));
+  const goalTables = ordered.filter((t) => t.goal);
 
   const byBib = new Map<string, RunnerSplits>();
   let missingBib = 0;
@@ -162,16 +169,24 @@ export function mergeRunners(
   }
 
   // 完走判定・最終到達地点
+  let overCutoff = 0;
   for (const runner of byBib.values()) {
     const reached = ordered.filter((t) => runner.grossByCheckpoint[t.checkpoint] != null);
     runner.lastCheckpoint = reached.length ? reached[reached.length - 1].checkpoint : undefined;
-    for (const g of goalNames) {
-      if (runner.grossByCheckpoint[g] != null) {
-        runner.finished = true;
-        runner.finishGrossSeconds = runner.grossByCheckpoint[g];
-        break;
+    for (const g of goalTables) {
+      const gross = runner.grossByCheckpoint[g.checkpoint];
+      if (gross == null) continue;
+      if (g.cutoffSeconds != null && gross > g.cutoffSeconds) {
+        overCutoff++;
+        continue; // 制限時間超過。ゴール地点には到達したが「完走」には数えない
       }
+      runner.finished = true;
+      runner.finishGrossSeconds = gross;
+      break;
     }
+  }
+  if (overCutoff > 0) {
+    notes.push(`ゴール地点の制限時間を超過したため完走に数えなかった選手が ${overCutoff} 名います。`);
   }
 
   const runners = [...byBib.values()].sort((a, b) => {
@@ -185,13 +200,86 @@ export function mergeRunners(
   return { runners, notes };
 }
 
+/** RUNNET 新 API (result.one.runnet.jp) から地点一覧・選手記録を自動取得する。 */
+async function ingestFromRunnetApi(
+  manifest: RaceManifest,
+  opts: IngestOptions,
+): Promise<SplitsDataset> {
+  const api = manifest.runnetApi;
+  if (!api) throw new Error('runnetApi が指定されていません。');
+  if (!manifest.raceId) throw new Error('runnetApi 指定には raceId が必須です。');
+
+  const kind = api.categoryKind ?? 'general';
+  const runnetOpts: RunnetFetchOptions = { ...opts, pageSize: api.pageSize };
+
+  const meta = await fetchRaceMeta(manifest.raceId, runnetOpts);
+  const list = kind === 'general' ? meta.generalCategories : meta.categories;
+  const category = list.find((c) => c.id === api.categoryId);
+  if (!category) {
+    const available = list.map((c) => `${c.id}:${c.name}`).join(', ') || '(なし)';
+    throw new Error(
+      `raceId=${manifest.raceId} に categoryId=${api.categoryId} (${kind}) が見つかりません。` +
+        `利用可能な種目: ${available}`,
+    );
+  }
+
+  const tables: CheckpointTable[] = [];
+  const locations = category.locations;
+  for (let i = 0; i < locations.length; i++) {
+    const loc = locations[i];
+    const order = i + 1;
+    const goal = loc.isFinish === true || i === locations.length - 1;
+    info(`checkpoint "${loc.name}": RUNNET API から取得 (location=${loc.id})`);
+    const athletes = await fetchLocationAthletes(
+      manifest.raceId,
+      { kind, id: api.categoryId },
+      loc.id,
+      runnetOpts,
+    );
+    tables.push({
+      checkpoint: loc.name,
+      order,
+      goal,
+      kind: category.name,
+      splits: athletesToSplits(athletes),
+      source: `${RESULT_ONE_BASE}/api/races/${manifest.raceId}/${
+        kind === 'general' ? 'general-categories' : 'categories'
+      }/${api.categoryId}?location=${loc.id}`,
+      cutoffSeconds: parseTimeToSeconds(manifest.checkpointCutoffs?.[loc.name]),
+      notes: [],
+    });
+  }
+
+  const { runners, notes } = mergeRunners(tables);
+  const checkpoints = tables.map((t) => ({ name: t.checkpoint, order: t.order, goal: t.goal }));
+
+  return {
+    raceId: manifest.raceId,
+    raceName: manifest.raceName ?? meta.raceName,
+    raceDate: manifest.raceDate ?? meta.raceDate,
+    kind: manifest.kind ?? category.name,
+    startTime: manifest.startTime,
+    fetchedAt: nowIso(opts.clock),
+    checkpoints,
+    tables,
+    runners,
+    notes,
+  };
+}
+
 /** マニフェストを取り込み、SplitsDataset を構築する。 */
 export async function ingestManifest(
   manifest: RaceManifest,
   opts: IngestOptions = {},
 ): Promise<SplitsDataset> {
+  if (manifest.runnetApi) {
+    return ingestFromRunnetApi(manifest, opts);
+  }
   if (!manifest.checkpoints || manifest.checkpoints.length === 0) {
-    throw new Error('マニフェストに checkpoints がありません。');
+    throw new Error(
+      'マニフェストに checkpoints がありません。html/csv/url を指定するか、' +
+        'runnetApi を指定して --live 付きで実行してください。',
+    );
   }
   const n = manifest.checkpoints.length;
   const anyGoalFlag = manifest.checkpoints.some((c) => c.goal);
@@ -204,6 +292,7 @@ export async function ingestManifest(
     // goal 明示が無ければ「最後の地点」をゴールとみなす
     const goal = anyGoalFlag ? !!cp.goal : i === n - 1;
     const table = await loadCheckpointTable(cp, order, goal, manifest.kind, opts);
+    table.cutoffSeconds = parseTimeToSeconds(manifest.checkpointCutoffs?.[cp.name]);
     for (const note of table.notes) {
       const tagged = `[${cp.name}] ${note}`;
       if (!notes.includes(tagged)) notes.push(tagged);

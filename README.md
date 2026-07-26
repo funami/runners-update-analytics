@@ -18,8 +18,8 @@ RUNNET「ランナーズアップデート」大会結果（地点 × 種目ご�
 
 | 出力 | 内容 |
 |---|---|
-| `dashboard.html` | 地点ごとの「通過者数（完走/未完走の積み上げ棒）」＋「通過時刻ごとの完走率（折れ線）」＋データ表。単一 HTML で完結、オフライン閲覧可。 |
-| `passing-table.csv` | 選手別ワイド表。各地点の `グロス`・`通過時刻`、`完走`可否、`ゴールグロス`、`最終到達地点`。 |
+| `dashboard.html` | 地点ごとの「通過者数（完走/未完走の積み上げ棒）」＋「通過時刻ごとの完走率（折れ線）」＋データ表。単一 HTML で完結、オフライン閲覧可。グラフはクリック/タップで経過時間・通過時刻等をチップ表示。 |
+| `passing-table.csv` | 選手別ワイド表。各地点の `グロス`・`通過時刻`、`完走`可否、`ゴールグロス`、`最終到達地点`。並びは最終到達地点が遠い順、同地点内はその地点への到達が早い順。 |
 | `finish-rate.csv` | `地点 × 通過時間帯` の縦持ち。`通過者数`・`完走者数`・`完走率(%)`。 |
 | `dataset.json` | 正規化済みの中間データ（監査・再分析用）。 |
 | `analysis.json` | 集計結果。50% 完走率を割り始める時間帯（実質的な関門の目安）も算出。 |
@@ -40,15 +40,72 @@ npm run demo
 
 サンプルデータは `node fixtures/generate-sample.mjs` で再生成できます（実データではありません）。
 
-## 実データの取り込み
+## 実データの取り込み（RUNNET 新プラットフォーム / 推奨）
 
-RUNNET には公開 API が無いため、**各地点ページの HTML を束ねて取り込む**方式です。
+RUNNET の大会結果ページ（例 `https://runnet.jp/record/race.do?raceId=386774`）は現在、
+中身が空の外枠ページで、実データは `https://result.one.runnet.jp/races/{raceId}` という
+別ドメインの iframe から配信されています。この result.one.runnet.jp は内部的に
+**JSON API**（`/api/races/{raceId}/general-categories/{categoryId}?...`）から選手記録を
+取得しており、本ツールはこの API を直接叩いて取り込みます。HTML のテーブルをパースする
+必要はありません。
+
+### 1. raceId・種目(category) ID を調べる
+
+```bash
+npm run rua -- runnet-categories 386774
+```
+
+大会名・開催日と、総合種目(`generalCategories`)／個別種目(`categories`)の一覧、
+各種目に含まれる地点(`locations`とその`id`)が JSON で出力されます。
+
+### 2. マニフェストを書く
+
+`fixtures/race-386774-summit.json` を雛形にしてください。地点一覧は自動取得するため
+`checkpoints` は不要です。
+
+```jsonc
+{
+  "raceId": "386774",
+  "kind": "山頂総合",
+  "startTime": "07:00",              // 号砲時刻。指定すると通過「時刻」を併記
+  // categoryId は手順1の generalCategories[].id（個別種目なら categories[].id + kind:"category"）
+  "runnetApi": { "categoryKind": "general", "categoryId": "1" },
+  // ゴール地点の制限時間。超過は「完走」に数えない（例: 富士登山競走 山頂コースは 4:30:00）
+  "checkpointCutoffs": { "Finish": "4:30:00" }
+}
+```
+
+`checkpointCutoffs` は省略可。指定しなければ、ゴール地点に記録があれば無条件に完走扱いになる
+（＝ RUNNET API がその地点に記録として返す全員。公式の関門・制限時間とは別の話なので、
+レースごとの実際の制限時間はマニフェストに明示すること）。
+
+### 3. 分析する（`--live` 必須）
+
+```bash
+npm run rua -- analyze fixtures/race-386774-summit.json --live -o out --bin-minutes 1
+
+# 表形式データ（ワイド CSV）だけ欲しいとき
+npm run rua -- table fixtures/race-386774-summit.json --live -o out/passing-table.csv
+```
+
+取得は地点ごとに 0 始まりのページング（既定 100 件/ページ）で行儀よく取得します
+（User-Agent 明示・リクエスト間 1.5 秒以上の待機・指数バックオフ再試行、`src/scraper/http.ts`）。
+
+> **プロキシ環境について**: Node 標準の `fetch` は `HTTP_PROXY`/`HTTPS_PROXY` 環境変数を
+> 自動では見ないため、プロキシ経由でしか外部に出られない環境では `runnet.jp` が
+> 「ブロックされている」ように見えることがあります（本ツール初期版はこれを誤って
+> ネットワークポリシーによる遮断と判断していました）。本ツールは `undici` の
+> `EnvHttpProxyAgent` を使い、これらの環境変数が設定されていれば自動的に
+> プロキシ経由で接続します（`src/scraper/http.ts`）。
+
+## 実データの取り込み（保存 HTML / オフライン・フォールバック）
+
+新 API が使えない大会・環境向けに、**各地点ページの HTML を束ねて取り込む**方式も残しています。
 1 種目ぶんについて、地点ごとに 1 ファイル（または URL）を **マニフェスト JSON** で指定します。
 
 ### 1. 各地点ページを保存する
 
-RUNNET の大会結果ページ（例 `https://runnet.jp/record/race.do?raceId=386774`）を開き、
-種目を選び、地点（`馬返し`／`五合目`／`八合目`／`Finish`）を切り替えて **結果が表示された状態**で、
+地点（`馬返し`／`五合目`／`八合目`／`Finish`）を切り替えて **結果が表示された状態**で、
 各地点のページを「**完全な HTML**（ウェブページ、完全）」でローカル保存します。
 （結果テーブルが Ajax で描画される場合、テーブルが表示されてから保存してください。）
 
@@ -75,6 +132,10 @@ RUNNET の大会結果ページ（例 `https://runnet.jp/record/race.do?raceId=3
 - `goal: true` の地点を「完走（山頂到達）」とみなします。省略時は**最後の地点**をゴール扱い。
 - `html` の代わりに `csv`（列に `bib` / `name` / `gross` / `net` を含む）でも取り込めます。
 - パスはマニフェストファイルからの相対パスで解決されます。
+- 各地点に `url` を指定し `--live` を付けると、そのページの HTML を直接取得してパースします
+  （`src/scraper/raceParser.ts` が結果テーブルをヒューリスティックに検出）。ただし
+  現行の result.one.runnet.jp は結果をクライアント側 JS で描画するため、この方式では
+  **結果テーブルを検出できません**。上の「新プラットフォーム」方式を使ってください。
 
 ### 3. 分析する
 
@@ -95,28 +156,6 @@ npm run rua -- ingest path/to/manifest.json -o out/dataset.json
 npm run build
 node dist/cli.js analyze path/to/manifest.json -o out
 ```
-
-## ライブ取得（ネットワークが許可された環境のみ）
-
-マニフェストの各地点に `url` を指定し、`--live` を付けると RUNNET から直接取得します
-（行儀の良い取得：User-Agent 明示・リクエスト間 1.5 秒以上の待機・指数バックオフ再試行）。
-
-```jsonc
-{ "name": "五合目", "order": 2, "url": "https://runnet.jp/record/race.do?raceId=386774&..." }
-```
-
-```bash
-npm run rua -- analyze manifest.json --live -o out
-```
-
-> **注意（このリポジトリの作成環境について）**
-> 本ツールを開発した実行環境では、ネットワークポリシーにより `runnet.jp` への
-> アクセスが遮断（HTTP 403）されていたため、**実際の DOM を確認できていません**。
-> HTML パーサ（`src/scraper/raceParser.ts`）は RUNNET の一般的な結果テーブル構造
-> （`Bib. / 氏名 / ネットタイム / グロスタイム`）に対するヒューリスティックで実装しており、
-> 特定の CSS セレクタに依存しない設計です。実ページで列の取り込みがずれる場合は、
-> `raceParser.ts` の `KEYWORDS` を実列名に合わせて調整してください
-> （保存 HTML を `test/` に置いて検証するのが確実です）。
 
 ## 「通過時刻ごとの完走率」の読み方
 
@@ -139,12 +178,13 @@ npm test            # ユニットテスト（node:test）
 
 | ファイル | 役割 |
 |---|---|
-| `src/scraper/raceParser.ts` | 1 地点 HTML → `CheckpointSplit[]`（列自動マッピング） |
-| `src/scraper/http.ts` | 行儀の良い HTTP 取得（UA・レート制限・再試行） |
-| `src/ingest.ts` | マニフェスト → 地点別テーブル → Bib 突き合わせ → `SplitsDataset` |
+| `src/scraper/runnetApi.ts` | result.one.runnet.jp の JSON API から種目・地点・選手記録を取得（推奨経路） |
+| `src/scraper/raceParser.ts` | 保存 HTML 1 地点分 → `CheckpointSplit[]`（列自動マッピング、フォールバック経路） |
+| `src/scraper/http.ts` | 行儀の良い HTTP 取得（UA・プロキシ対応・レート制限・再試行） |
+| `src/ingest.ts` | マニフェスト（runnetApi or checkpoints）→ 地点別テーブル → Bib 突き合わせ → `SplitsDataset` |
 | `src/analysis.ts` | 通過時間帯ビン集計・完走率・ワイド表生成 |
 | `src/dashboard/` | 自己完結 HTML ＋ インライン SVG チャート生成 |
-| `src/cli.ts` | `ingest` / `table` / `analyze` コマンド |
+| `src/cli.ts` | `runnet-categories` / `ingest` / `table` / `analyze` コマンド |
 
 ## データ利用上の注意
 

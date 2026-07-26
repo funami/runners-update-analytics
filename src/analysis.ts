@@ -139,10 +139,14 @@ export function analyze(dataset: SplitsDataset, binMinutes = 1): RaceAnalysis {
 /**
  * 選手別の各地点通過タイムを並べたワイド表を作る（CSV/監査用）。
  * 各地点につき「グロス(経過)」列と、号砲指定時は「通過時刻」列を出す。
+ *
+ * 行の並びは「最終到達地点が遠い順（完走者→より先の地点で止まった選手→より手前で
+ * 止まった選手）」、同じ最終到達地点の中では「その地点への到達(グロス)が早い順」。
  */
 export function buildWideTable(dataset: SplitsDataset): (string | number)[][] {
   const startSec = parseClock(dataset.startTime);
   const cps = dataset.checkpoints.slice().sort((a, b) => a.order - b.order);
+  const orderByCheckpoint = new Map(cps.map((c) => [c.name, c.order]));
 
   const header: string[] = ['Bib', '氏名'];
   for (const c of cps) {
@@ -151,8 +155,17 @@ export function buildWideTable(dataset: SplitsDataset): (string | number)[][] {
   }
   header.push('完走', 'ゴールグロス', '最終到達地点');
 
+  const sortedRunners = dataset.runners.slice().sort((a, b) => {
+    const oa = a.lastCheckpoint != null ? orderByCheckpoint.get(a.lastCheckpoint) ?? -1 : -1;
+    const ob = b.lastCheckpoint != null ? orderByCheckpoint.get(b.lastCheckpoint) ?? -1 : -1;
+    if (oa !== ob) return ob - oa; // 最終到達地点が遠い(order が大きい)順
+    const ga = a.lastCheckpoint != null ? (a.grossByCheckpoint[a.lastCheckpoint] ?? Infinity) : Infinity;
+    const gb = b.lastCheckpoint != null ? (b.grossByCheckpoint[b.lastCheckpoint] ?? Infinity) : Infinity;
+    return ga - gb; // 同一地点内はその地点への到達が早い順
+  });
+
   const rows: (string | number)[][] = [header];
-  for (const r of dataset.runners) {
+  for (const r of sortedRunners) {
     const row: (string | number)[] = [r.bib, r.name ?? ''];
     for (const c of cps) {
       const g = r.grossByCheckpoint[c.name];

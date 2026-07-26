@@ -4,13 +4,36 @@
  * - User-Agent を明示
  * - リクエスト間に最低待機時間（既定 1.5s）を挟む（サーバ負荷への配慮）
  * - 失敗時は指数バックオフでリトライ
+ * - HTTP_PROXY/HTTPS_PROXY 環境変数が設定されていればそれ経由で接続する
+ *   （Node 標準の fetch は curl と異なりこれらを自動では見ないため、
+ *   プロキシ経由でしか外部に出られない環境では「ブロックされている」ように
+ *   見えることがある。EnvHttpProxyAgent で curl 相当の挙動に揃える）
  *
- * 注意: 実行環境のネットワークポリシーによっては runnet.jp への接続が
- * 遮断される（HTTP 403 / CONNECT 拒否）。その場合はブラウザで保存した
- * HTML を `--html <file>` で読み込むオフラインモードを使うこと。
+ * 注意: それでも接続できない場合は、ブラウザで保存した HTML を
+ * `--html <file>` で読み込むオフラインモードを使うこと。
  */
 
+import { EnvHttpProxyAgent, setGlobalDispatcher } from 'undici';
 import { info, warn } from '../util/logger.js';
+
+let proxyDispatcherConfigured = false;
+
+/** 環境変数にプロキシ設定があれば、fetch がそれを使うよう一度だけ設定する。 */
+function ensureProxyAwareFetch(): void {
+  if (proxyDispatcherConfigured) return;
+  proxyDispatcherConfigured = true;
+  const hasProxyEnv = [
+    'HTTPS_PROXY',
+    'https_proxy',
+    'HTTP_PROXY',
+    'http_proxy',
+    'ALL_PROXY',
+    'all_proxy',
+  ].some((k) => !!process.env[k]);
+  if (hasProxyEnv) {
+    setGlobalDispatcher(new EnvHttpProxyAgent());
+  }
+}
 
 export interface FetchOptions {
   /** リクエスト間の最低待機(ms)。 */
@@ -47,6 +70,7 @@ async function throttle(minDelayMs: number): Promise<void> {
 
 /** 1 URL を取得して HTML 文字列を返す。 */
 export async function fetchHtml(url: string, opts: FetchOptions = {}): Promise<string> {
+  ensureProxyAwareFetch();
   const o = { ...DEFAULTS, ...opts };
   let lastErr: unknown;
 

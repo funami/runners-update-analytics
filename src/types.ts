@@ -40,6 +40,11 @@ export interface CheckpointTable {
   splits: CheckpointSplit[];
   /** 取得元 URL / ファイル。 */
   source?: string;
+  /**
+   * この地点の制限時間（グロス秒）。ゴール地点に設定した場合、これを超えたグロスタイムは
+   * 「完走」に数えない（`RaceManifest.checkpointCutoffs` から解決される）。
+   */
+  cutoffSeconds?: number;
   /** パーサからの注意。 */
   notes: string[];
 }
@@ -60,6 +65,20 @@ export interface ManifestCheckpoint {
   url?: string;
 }
 
+/**
+ * RUNNET 新プラットフォーム（result.one.runnet.jp）の JSON API から
+ * 地点一覧・選手記録を自動取得する場合の指定。指定時は checkpoints を省略できる。
+ * 種目(categoryId)・地点(locationId)は `rua runnet-categories <raceId>` で確認する。
+ */
+export interface RunnetApiSource {
+  /** 総合種目("general") か 個別種目("category") か。既定 "general"。 */
+  categoryKind?: 'general' | 'category';
+  /** 種目 ID。 */
+  categoryId: string;
+  /** 1 ページあたりの取得件数（既定 100）。大きすぎるとサーバ側で 500 になることがある。 */
+  pageSize?: number;
+}
+
 /** レース 1 種目ぶんの取得定義。 */
 export interface RaceManifest {
   /** RUNNET raceId。 */
@@ -72,8 +91,17 @@ export interface RaceManifest {
   kind?: string;
   /** 号砲（スタート）時刻 "HH:MM" or "HH:MM:SS"。通過時刻(clock)算出に使用。 */
   startTime?: string;
-  /** 地点一覧（コース順）。 */
-  checkpoints: ManifestCheckpoint[];
+  /** 地点一覧（コース順）。runnetApi 指定時は省略可（自動取得）。 */
+  checkpoints?: ManifestCheckpoint[];
+  /** 指定時は checkpoints の代わりに RUNNET 新 API から自動取得する（要 --live）。 */
+  runnetApi?: RunnetApiSource;
+  /**
+   * 地点名 -> 制限時間（"H:MM:SS" 等、`parseTimeToSeconds` で解釈）。
+   * ゴール地点に指定すると、それを超えるグロスタイムは「完走」に数えない
+   * （例: 富士登山競走 山頂コースの制限時間 4:30:00）。
+   * ゴール以外の地点（中間関門）に指定しても現状は集計に影響しない。
+   */
+  checkpointCutoffs?: Record<string, string>;
 }
 
 /** 選手ごとの各地点通過記録（Bib で突き合わせ済み）。 */

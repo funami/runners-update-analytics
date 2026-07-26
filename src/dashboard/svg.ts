@@ -66,18 +66,20 @@ export function stackedBarSvg(cp: CheckpointFinishAnalysis, useClock: boolean): 
       parts.push(
         `<rect x="${x.toFixed(1)}" y="${yDnf.toFixed(1)}" width="${barW.toFixed(
           1,
-        )}" height="${Math.max(0, hDnf - 1).toFixed(1)}" rx="1.5" fill="var(--c-dnf)"><title>${esc(
-          title,
-        )}</title></rect>`,
+        )}" height="${Math.max(0, hDnf - 1).toFixed(1)}" rx="1.5" fill="var(--c-dnf)" ` +
+          `class="mark" tabindex="0" data-tip="${esc(title)}" onclick="showChartTip(event,this)" ` +
+          `onkeydown="if(event.key==='Enter'||event.key===' '){showChartTip(event,this)}">` +
+          `<title>${esc(title)}</title></rect>`,
       );
     // 完走（下, ベースライン接地）
     if (hFin > 0.3)
       parts.push(
         `<rect x="${x.toFixed(1)}" y="${yFin.toFixed(1)}" width="${barW.toFixed(
           1,
-        )}" height="${Math.max(0, hFin).toFixed(1)}" rx="1.5" fill="var(--c-finish)"><title>${esc(
-          title,
-        )}</title></rect>`,
+        )}" height="${Math.max(0, hFin).toFixed(1)}" rx="1.5" fill="var(--c-finish)" ` +
+          `class="mark" tabindex="0" data-tip="${esc(title)}" onclick="showChartTip(event,this)" ` +
+          `onkeydown="if(event.key==='Enter'||event.key===' '){showChartTip(event,this)}">` +
+          `<title>${esc(title)}</title></rect>`,
       );
     // x 軸ラベル
     if (ticks.has(i)) {
@@ -165,11 +167,13 @@ export function rateLineSvg(cp: CheckpointFinishAnalysis, useClock: boolean): st
     const py = y(p.b.finishRate!);
     const title = `${label(p.b)}  完走率 ${(p.b.finishRate! * 100).toFixed(1)}% (${p.b.finishers}/${p.b.passers})`;
     parts.push(
+      `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="5.5" fill="transparent" ` +
+        `class="mark" tabindex="0" data-tip="${esc(title)}" onclick="showChartTip(event,this)" ` +
+        `onkeydown="if(event.key==='Enter'||event.key===' '){showChartTip(event,this)}">` +
+        `<title>${esc(title)}</title></circle>`,
       `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(
         1,
-      )}" r="3.2" fill="var(--c-rate)" stroke="var(--surface)" stroke-width="1"><title>${esc(
-        title,
-      )}</title></circle>`,
+      )}" r="3.2" fill="var(--c-rate)" stroke="var(--surface)" stroke-width="1" pointer-events="none"/>`,
     );
     if (ticks.has(p.i)) {
       parts.push(
