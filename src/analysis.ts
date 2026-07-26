@@ -138,20 +138,18 @@ export function analyze(dataset: SplitsDataset, binMinutes = 1): RaceAnalysis {
 
 /**
  * 選手別の各地点通過タイムを並べたワイド表を作る（CSV/監査用）。
- * 各地点につき「グロス(経過)」列と、号砲指定時は「通過時刻」列を出す。
+ * 各地点につき「グロス(経過)」列を出す（通過時刻は出さない）。
  *
  * 行の並びは「最終到達地点が遠い順（完走者→より先の地点で止まった選手→より手前で
  * 止まった選手）」、同じ最終到達地点の中では「その地点への到達(グロス)が早い順」。
  */
 export function buildWideTable(dataset: SplitsDataset): (string | number)[][] {
-  const startSec = parseClock(dataset.startTime);
   const cps = dataset.checkpoints.slice().sort((a, b) => a.order - b.order);
   const orderByCheckpoint = new Map(cps.map((c) => [c.name, c.order]));
 
   const header: string[] = ['Bib', '氏名'];
   for (const c of cps) {
     header.push(`${c.name} グロス`);
-    if (startSec != null) header.push(`${c.name} 通過時刻`);
   }
   header.push('完走', 'ゴールグロス', '最終到達地点');
 
@@ -170,7 +168,6 @@ export function buildWideTable(dataset: SplitsDataset): (string | number)[][] {
     for (const c of cps) {
       const g = r.grossByCheckpoint[c.name];
       row.push(g != null ? formatSeconds(g) : '');
-      if (startSec != null) row.push(g != null ? clockLabel(g, startSec, true) ?? '' : '');
     }
     row.push(
       r.finished ? '完走' : '未完走',

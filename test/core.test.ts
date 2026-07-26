@@ -167,7 +167,7 @@ test('buildWideTable: 選手ごとに各地点列', () => {
   };
   const rows = buildWideTable(dataset);
   assert.equal(rows[0][0], 'Bib');
-  assert.ok((rows[0] as string[]).includes('馬返し 通過時刻'));
+  assert.ok(!(rows[0] as string[]).includes('馬返し 通過時刻')); // 通過時刻列は出さない
   assert.equal(rows[1][0], '1');
   assert.equal(rows[1][2], '1:00:00'); // 馬返しグロス
 });
