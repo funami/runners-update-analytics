@@ -67,6 +67,11 @@ export interface RunnetFetchOptions extends FetchOptions {
   fetchFn?: (url: string, opts?: FetchOptions) => Promise<string>;
   /** 1 ページあたりの取得件数（既定 100）。大きすぎるとサーバ側で 500 になることがある。 */
   pageSize?: number;
+  /**
+   * 速報(false)か確報(true)か。既定 "auto"（速報を試し、0 件なら確報にフォールバック）。
+   * 大会からしばらく経つと速報データが確報に差し替わり isFixed=false が空になることがある。
+   */
+  isFixed?: 'auto' | boolean;
 }
 
 /** `self.__next_f.push([1, "..."])` の文字列断片を連結して 1 本のテキストにする。 */
@@ -174,11 +179,12 @@ export async function fetchLocationAthletes(
   const pageSize = opts.pageSize ?? 100;
   const segment = category.kind === 'general' ? 'general-categories' : 'categories';
 
-  const byKey = new Map<string, RunnetAthlete>();
-  for (let page = 0; ; page++) {
-    const url =
-      `${RESULT_ONE_BASE}/api/races/${raceId}/${segment}/${category.id}` +
-      `?page=${page}&num=${pageSize}&isFixed=false&location=${locationId}`;
+  const buildUrl = (isFixed: boolean, page: number) =>
+    `${RESULT_ONE_BASE}/api/races/${raceId}/${segment}/${category.id}` +
+    `?page=${page}&num=${pageSize}&isFixed=${isFixed}&location=${locationId}`;
+
+  const fetchPage = async (isFixed: boolean, page: number): Promise<RunnetAthlete[]> => {
+    const url = buildUrl(isFixed, page);
     const text = await fetcher(url, opts);
     let data: { athletes?: RunnetAthlete[] } | null;
     try {
@@ -186,11 +192,35 @@ export async function fetchLocationAthletes(
     } catch {
       throw new Error(`location=${locationId} の応答を JSON として解析できませんでした: ${url}`);
     }
-    const athletes = data?.athletes ?? [];
-    if (athletes.length === 0) break;
-    for (const a of athletes) {
-      const key = a.runnerId ?? a.bibNo;
-      if (key != null) byKey.set(String(key), a);
+    return data?.athletes ?? [];
+  };
+
+  let isFixed: boolean;
+  let firstPage: RunnetAthlete[];
+  if (opts.isFixed === true || opts.isFixed === false) {
+    isFixed = opts.isFixed;
+    firstPage = await fetchPage(isFixed, 0);
+  } else {
+    // auto: 速報(false)優先。大会終了からしばらく経つと速報データが確報に
+    // 差し替わり isFixed=false が空になるため、その場合は確報(true)にフォールバック。
+    firstPage = await fetchPage(false, 0);
+    isFixed = firstPage.length === 0;
+    if (isFixed) firstPage = await fetchPage(true, 0);
+  }
+
+  const byKey = new Map<string, RunnetAthlete>();
+  for (const a of firstPage) {
+    const key = a.runnerId ?? a.bibNo;
+    if (key != null) byKey.set(String(key), a);
+  }
+  if (firstPage.length > 0) {
+    for (let page = 1; ; page++) {
+      const athletes = await fetchPage(isFixed, page);
+      if (athletes.length === 0) break;
+      for (const a of athletes) {
+        const key = a.runnerId ?? a.bibNo;
+        if (key != null) byKey.set(String(key), a);
+      }
     }
   }
   return [...byKey.values()];

@@ -179,17 +179,15 @@ export function buildWideTable(dataset: SplitsDataset): (string | number)[][] {
   return rows;
 }
 
-/** 分析結果を「地点 × 通過時間帯」の縦持ち CSV 行に。 */
+/** 分析結果を「地点 × 経過時間帯」の縦持ち CSV 行に。 */
 export function buildFinishRateTable(analysis: RaceAnalysis): (string | number)[][] {
-  const hasClock = analysis.startTime != null && parseClock(analysis.startTime) != null;
-  const header = ['地点', '経過時間帯', ...(hasClock ? ['通過時刻帯'] : []), '通過者数', '完走者数', '完走率(%)'];
+  const header = ['地点', '経過時間帯', '通過者数', '完走者数', '完走率(%)'];
   const rows: (string | number)[][] = [header];
   for (const cp of analysis.checkpoints) {
     for (const b of cp.bins) {
       rows.push([
         cp.checkpoint,
         b.elapsedLabel,
-        ...(hasClock ? [b.clockLabel ?? ''] : []),
         b.passers,
         b.finishers,
         b.finishRate != null ? (b.finishRate * 100).toFixed(1) : '',

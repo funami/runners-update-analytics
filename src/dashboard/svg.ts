@@ -21,7 +21,7 @@ function tickIndices(n: number, maxTicks = 12): Set<number> {
 }
 
 /** 通過者数（完走/未完走の積み上げ）棒グラフ。単一 y 軸（人数）。 */
-export function stackedBarSvg(cp: CheckpointFinishAnalysis, useClock: boolean): string {
+export function stackedBarSvg(cp: CheckpointFinishAnalysis): string {
   const bins = cp.bins;
   const W = 960;
   const H = 300;
@@ -37,7 +37,7 @@ export function stackedBarSvg(cp: CheckpointFinishAnalysis, useClock: boolean): 
   const yScale = (v: number) => (v / maxPass) * ih;
   const yTicks = niceTicks(maxPass, 4);
 
-  const label = (b: PassBin) => (useClock && b.clockLabel ? b.clockLabel : b.elapsedLabel);
+  const label = (b: PassBin) => b.elapsedLabel;
 
   const parts: string[] = [];
   // グリッド + y 軸目盛
@@ -100,9 +100,9 @@ export function stackedBarSvg(cp: CheckpointFinishAnalysis, useClock: boolean): 
   // 軸タイトル
   parts.push(
     `<text x="${m.left}" y="12" class="axtitle">人数</text>`,
-    `<text x="${m.left + iw}" y="${H - 6}" text-anchor="end" class="ax">${
-      useClock ? '通過時刻' : '経過時間'
-    }（${escBinLabel(cp)}）</text>`,
+    `<text x="${m.left + iw}" y="${H - 6}" text-anchor="end" class="ax">経過時間（${escBinLabel(
+      cp,
+    )}）</text>`,
   );
 
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(
@@ -111,7 +111,7 @@ export function stackedBarSvg(cp: CheckpointFinishAnalysis, useClock: boolean): 
 }
 
 /** 完走率（%）折れ線。単一 y 軸 0–100%。 */
-export function rateLineSvg(cp: CheckpointFinishAnalysis, useClock: boolean): string {
+export function rateLineSvg(cp: CheckpointFinishAnalysis): string {
   const bins = cp.bins;
   const W = 960;
   const H = 220;
@@ -121,7 +121,7 @@ export function rateLineSvg(cp: CheckpointFinishAnalysis, useClock: boolean): st
   const n = bins.length;
   const band = n > 0 ? iw / n : iw;
   const ticks = tickIndices(n);
-  const label = (b: PassBin) => (useClock && b.clockLabel ? b.clockLabel : b.elapsedLabel);
+  const label = (b: PassBin) => b.elapsedLabel;
 
   const x = (i: number) => m.left + i * band + band / 2;
   const y = (rate: number) => m.top + ih - rate * ih;
@@ -192,7 +192,7 @@ export function rateLineSvg(cp: CheckpointFinishAnalysis, useClock: boolean): st
 
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(
     cp.checkpoint,
-  )} 通過時刻ごとの完走率" preserveAspectRatio="xMinYMin meet" class="chart">${parts.join('')}</svg>`;
+  )} 経過時間ごとの完走率" preserveAspectRatio="xMinYMin meet" class="chart">${parts.join('')}</svg>`;
 }
 
 function escBinLabel(cp: CheckpointFinishAnalysis): string {

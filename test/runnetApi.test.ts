@@ -94,6 +94,33 @@ test('fetchLocationAthletes: 0始まりページングで重複・欠落なく�
   assert.ok(calls[0].includes('location=6'));
 });
 
+test('fetchLocationAthletes: 速報(isFixed=false)が空なら確報(isFixed=true)にフォールバック', async () => {
+  const confirmed: RunnetAthlete[] = [{ runnerId: '9', bibNo: '9', name: '選手9', grossTime: '2:00:00' }];
+
+  const calls: string[] = [];
+  const fetchFn = async (url: string) => {
+    calls.push(url);
+    if (url.includes('isFixed=false')) return 'null'; // 速報は既に確報に差し替え済み
+    if (url.includes('isFixed=true') && url.includes('page=0')) {
+      return JSON.stringify({ athletes: confirmed });
+    }
+    return 'null';
+  };
+
+  const athletes = await fetchLocationAthletes(
+    '372194',
+    { kind: 'general', id: '1' },
+    6,
+    { fetchFn, pageSize: 100 },
+  );
+
+  assert.equal(athletes.length, 1);
+  assert.equal(athletes[0].bibNo, '9');
+  // isFixed=false を先に試し、空だったので isFixed=true にフォールバックしている
+  assert.ok(calls.some((c) => c.includes('isFixed=false') && c.includes('page=0')));
+  assert.ok(calls.some((c) => c.includes('isFixed=true') && c.includes('page=0')));
+});
+
 test('athletesToSplits: bib/氏名/グロス秒への変換', () => {
   const splits = athletesToSplits([
     { bibNo: '22', name: '小島 弘道', teamName: 'チーム100マイル', grossTime: '3:05:28' },

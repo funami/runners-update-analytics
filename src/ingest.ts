@@ -210,7 +210,7 @@ async function ingestFromRunnetApi(
   if (!manifest.raceId) throw new Error('runnetApi 指定には raceId が必須です。');
 
   const kind = api.categoryKind ?? 'general';
-  const runnetOpts: RunnetFetchOptions = { ...opts, pageSize: api.pageSize };
+  const runnetOpts: RunnetFetchOptions = { ...opts, pageSize: api.pageSize, isFixed: api.isFixed };
 
   const meta = await fetchRaceMeta(manifest.raceId, runnetOpts);
   const list = kind === 'general' ? meta.generalCategories : meta.categories;

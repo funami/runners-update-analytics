@@ -1,7 +1,7 @@
 /** RaceAnalysis + SplitsDataset から自己完結型 HTML ダッシュボードを生成する。 */
 
 import type { RaceAnalysis, SplitsDataset } from '../types.js';
-import { buildWideTable, parseClock } from '../analysis.js';
+import { buildWideTable } from '../analysis.js';
 import { formatSeconds } from '../util/time.js';
 import { esc, stackedBarSvg, rateLineSvg } from './svg.js';
 
@@ -15,7 +15,7 @@ function kpiCard(label: string, value: string, sub?: string): string {
   )}</div>${sub ? `<div class="kpi-s">${esc(sub)}</div>` : ''}</div>`;
 }
 
-function checkpointSection(cp: RaceAnalysis['checkpoints'][number], useClock: boolean): string {
+function checkpointSection(cp: RaceAnalysis['checkpoints'][number]): string {
   const cutoff =
     cp.finishRate50CutoffSec != null
       ? `完走率50%割れの目安: 経過 ${formatSeconds(cp.finishRate50CutoffSec)} 以降`
@@ -26,7 +26,7 @@ function checkpointSection(cp: RaceAnalysis['checkpoints'][number], useClock: bo
   const rows = cp.bins
     .map(
       (b) => `<tr>
-      <td class="num">${esc(useClock && b.clockLabel ? b.clockLabel : b.elapsedLabel)}</td>
+      <td class="num">${esc(b.elapsedLabel)}</td>
       <td class="num">${b.passers}</td>
       <td class="num">${b.finishers}</td>
       <td class="num">${b.finishRate != null ? (b.finishRate * 100).toFixed(1) : '-'}</td>
@@ -39,26 +39,27 @@ function checkpointSection(cp: RaceAnalysis['checkpoints'][number], useClock: bo
     <div class="cp-kpis">
       ${kpiCard('通過者数', String(cp.totalPassers))}
       ${kpiCard('完走者数', String(cp.totalFinishers))}
+      ${kpiCard('未完走者数', String(cp.totalPassers - cp.totalFinishers))}
       ${kpiCard('通過者の完走率', pct(cp.overallFinishRate))}
     </div>
     <p class="cutoff">${esc(cutoff)}</p>
     <figure>
-      <figcaption>通過時間帯ごとの通過者数（<span class="sw sw-fin"></span>完走 / <span class="sw sw-dnf"></span>未完走）</figcaption>
-      ${stackedBarSvg(cp, useClock)}
+      <figcaption>経過時間帯ごとの通過者数（<span class="sw sw-fin"></span>完走 / <span class="sw sw-dnf"></span>未完走）</figcaption>
+      ${stackedBarSvg(cp)}
     </figure>
     ${
       cp.goal
         ? ''
         : `<figure>
-      <figcaption>通過時刻ごとの完走率</figcaption>
-      ${rateLineSvg(cp, useClock)}
+      <figcaption>経過時間ごとの完走率</figcaption>
+      ${rateLineSvg(cp)}
     </figure>`
     }
     <details>
       <summary>データ表（${cp.bins.length} 行）</summary>
       <div class="tbl-wrap">
       <table class="data">
-        <thead><tr><th>${useClock ? '通過時刻帯' : '経過時間帯'}</th><th>通過者数</th><th>完走者数</th><th>完走率(%)</th></tr></thead>
+        <thead><tr><th>経過時間帯</th><th>通過者数</th><th>完走者数</th><th>完走率(%)</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
       </div>
@@ -89,7 +90,6 @@ function wideTableHtml(dataset: SplitsDataset): string {
 
 /** ダッシュボード HTML を生成。 */
 export function generateDashboard(analysis: RaceAnalysis, dataset: SplitsDataset): string {
-  const useClock = analysis.startTime != null && parseClock(analysis.startTime) != null;
   const title = [analysis.raceName, analysis.kind].filter(Boolean).join(' / ') || 'RUNNET 完走率分析';
   const meta = [
     analysis.raceDate ? `開催日 ${analysis.raceDate}` : '',
@@ -100,7 +100,7 @@ export function generateDashboard(analysis: RaceAnalysis, dataset: SplitsDataset
     .filter(Boolean)
     .join(' ・ ');
 
-  const sections = analysis.checkpoints.map((c) => checkpointSection(c, useClock)).join('\n');
+  const sections = analysis.checkpoints.map((c) => checkpointSection(c)).join('\n');
 
   const notes = analysis.notes.length
     ? `<details class="notes"><summary>注意・データ品質 (${analysis.notes.length})</summary><ul>${analysis.notes
@@ -113,7 +113,7 @@ export function generateDashboard(analysis: RaceAnalysis, dataset: SplitsDataset
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(title)} — 通過時刻×完走率</title>
+<title>${esc(title)} — 経過時間×完走率</title>
 <style>
 :root{
   color-scheme: light dark;
@@ -191,7 +191,7 @@ rect,circle{transition:opacity .1s}
   <div>
     <h1>${esc(title)}</h1>
     <p class="sub">${esc(meta)}</p>
-    <p class="sub">通過時刻ごとの完走率 — 各地点をその時刻に通過した選手のうち、山頂ゴールに到達した割合</p>
+    <p class="sub">経過時間ごとの完走率 — 各地点をその経過時間帯に通過した選手のうち、山頂ゴールに到達した割合</p>
   </div>
   <button class="theme-btn" onclick="(function(){var r=document.documentElement;var d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark')})()">◐ テーマ切替</button>
 </header>

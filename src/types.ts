@@ -77,6 +77,8 @@ export interface RunnetApiSource {
   categoryId: string;
   /** 1 ページあたりの取得件数（既定 100）。大きすぎるとサーバ側で 500 になることがある。 */
   pageSize?: number;
+  /** 速報(false)/確報(true)。既定 "auto"（速報を試し、0件なら確報にフォールバック）。 */
+  isFixed?: 'auto' | boolean;
 }
 
 /** レース 1 種目ぶんの取得定義。 */
