@@ -1,0 +1,33 @@
+{
+  "raceId": "386774",
+  "raceName": "第79回富士登山競走",
+  "raceDate": "2026-07-24",
+  "kind": "山頂総合",
+  "startTime": "07:00",
+  "checkpoints": [
+    {
+      "name": "馬返し",
+      "order": 1,
+      "goal": false,
+      "html": "sample/1_馬返し.html"
+    },
+    {
+      "name": "五合目",
+      "order": 2,
+      "goal": false,
+      "html": "sample/2_五合目.html"
+    },
+    {
+      "name": "八合目",
+      "order": 3,
+      "goal": false,
+      "html": "sample/3_八合目.html"
+    },
+    {
+      "name": "Finish",
+      "order": 4,
+      "goal": true,
+      "html": "sample/4_Finish.html"
+    }
+  ]
+}

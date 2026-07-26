@@ -1,0 +1,168 @@
+/**
+ * ドメインモデル定義。
+ *
+ * 対象: RUNNET「ランナーズアップデート」大会結果、特に
+ *   富士登山競走のように「地点（関門）× 種目」ごとに通過記録が公開されるレース。
+ *
+ * データの流れ:
+ *   1) (地点 × 種目) ごとの結果ページ HTML を parseCheckpointHtml で
+ *      CheckpointSplit[] に正規化する。
+ *   2) 複数地点を Bib で突き合わせ、RunnerSplits[]（選手ごとの各地点通過記録）を作る。
+ *   3) 地点ごとに「通過時間帯(既定1分刻み)の通過者数」と「そのうち完走した人数」を
+ *      集計し、通過時刻ごとの完走率を算出する（RaceAnalysis）。
+ */
+
+/** 1 地点の結果テーブルにおける 1 行（1 選手の通過記録）。 */
+export interface CheckpointSplit {
+  /** ゼッケン / ナンバーカード番号（選手の突き合わせキー）。 */
+  bib?: string;
+  /** 氏名（掲載されている場合）。 */
+  name?: string;
+  /** ネットタイム（スタートライン通過起点）秒。空欄のことも多い。 */
+  netSeconds?: number;
+  /** グロスタイム（号砲起点の経過時間）秒。この分析の主役。 */
+  grossSeconds?: number;
+  /** 正規化できなかった元の列（ヘッダー -> 値）。 */
+  raw: Record<string, string>;
+}
+
+/** 1 地点ぶんの結果テーブル。 */
+export interface CheckpointTable {
+  /** 地点名（例: "馬返し", "五合目", "八合目", "Finish"）。 */
+  checkpoint: string;
+  /** コース上の順序（小さいほどスタート寄り）。 */
+  order: number;
+  /** この地点がゴール（山頂）か。 */
+  goal: boolean;
+  /** 種目名（例: "山頂の部" / "山頂総合"）。 */
+  kind?: string;
+  /** 正規化済みの通過記録。 */
+  splits: CheckpointSplit[];
+  /** 取得元 URL / ファイル。 */
+  source?: string;
+  /** パーサからの注意。 */
+  notes: string[];
+}
+
+/** マニフェスト内の 1 地点エントリ。html か url のどちらかを指定する。 */
+export interface ManifestCheckpoint {
+  /** 地点名。 */
+  name: string;
+  /** コース順（省略時は配列順）。 */
+  order?: number;
+  /** ゴール（山頂）地点なら true。省略時は最後の地点をゴールとみなす。 */
+  goal?: boolean;
+  /** 保存済み HTML ファイルパス（オフライン取得）。 */
+  html?: string;
+  /** CSV ファイルパス（列: bib,name,net,gross のいずれかを含む）。 */
+  csv?: string;
+  /** ライブ取得する URL（ネットワーク許可環境）。 */
+  url?: string;
+}
+
+/** レース 1 種目ぶんの取得定義。 */
+export interface RaceManifest {
+  /** RUNNET raceId。 */
+  raceId?: string;
+  /** 大会名。 */
+  raceName?: string;
+  /** 開催日 (YYYY-MM-DD)。 */
+  raceDate?: string;
+  /** 種目名（例: "山頂の部"）。 */
+  kind?: string;
+  /** 号砲（スタート）時刻 "HH:MM" or "HH:MM:SS"。通過時刻(clock)算出に使用。 */
+  startTime?: string;
+  /** 地点一覧（コース順）。 */
+  checkpoints: ManifestCheckpoint[];
+}
+
+/** 選手ごとの各地点通過記録（Bib で突き合わせ済み）。 */
+export interface RunnerSplits {
+  bib: string;
+  name?: string;
+  /** 地点名 -> グロス秒（経過時間）。通過した地点のみ。 */
+  grossByCheckpoint: Record<string, number>;
+  /** 地点名 -> ネット秒（あれば）。 */
+  netByCheckpoint: Record<string, number>;
+  /** ゴール（山頂）に到達したか。 */
+  finished: boolean;
+  /** ゴールのグロス秒（完走者のみ）。 */
+  finishGrossSeconds?: number;
+  /** 最終到達地点名。 */
+  lastCheckpoint?: string;
+}
+
+/** 正規化済みデータセット（ingest の成果物）。 */
+export interface SplitsDataset {
+  raceId?: string;
+  raceName?: string;
+  raceDate?: string;
+  kind?: string;
+  startTime?: string;
+  fetchedAt: string;
+  /** コース順の地点定義。 */
+  checkpoints: { name: string; order: number; goal: boolean }[];
+  /** 地点ごとの生テーブル（監査用）。 */
+  tables: CheckpointTable[];
+  /** Bib で突き合わせた選手別記録。 */
+  runners: RunnerSplits[];
+  notes: string[];
+}
+
+/** 通過時間帯(1分刻み等) 1 ビンの集計。 */
+export interface PassBin {
+  /** ビン下限のグロス秒（含む）。 */
+  startSec: number;
+  /** ビン上限のグロス秒（含まない）。 */
+  endSec: number;
+  /** 経過時間表示ラベル（例 "1:23"）。 */
+  elapsedLabel: string;
+  /** 通過時刻(clock)ラベル（startTime 指定時のみ、例 "08:23"）。 */
+  clockLabel?: string;
+  /** この時間帯にこの地点を通過した人数。 */
+  passers: number;
+  /** そのうち最終的に完走（山頂到達）した人数。 */
+  finishers: number;
+  /** 完走率 (finishers / passers)。passers=0 の場合 null。 */
+  finishRate: number | null;
+}
+
+/** 1 地点ぶんの「通過時刻 × 完走率」分析。 */
+export interface CheckpointFinishAnalysis {
+  checkpoint: string;
+  order: number;
+  goal: boolean;
+  /** この地点の通過者総数。 */
+  totalPassers: number;
+  /** うち完走者数。 */
+  totalFinishers: number;
+  /** 通過者全体の完走率。 */
+  overallFinishRate: number | null;
+  /** 1分刻み等のビン列（時間昇順）。 */
+  bins: PassBin[];
+  /**
+   * 完走率が 50% を下回り始める最初のビン（実質的な関門の目安）。
+   * 見つからなければ null。
+   */
+  finishRate50CutoffSec: number | null;
+}
+
+/** レース全体の分析結果（ダッシュボード入力）。 */
+export interface RaceAnalysis {
+  raceId?: string;
+  raceName?: string;
+  raceDate?: string;
+  kind?: string;
+  startTime?: string;
+  fetchedAt: string;
+  binMinutes: number;
+  /** 総エントリー（いずれかの地点を通過した選手数）。 */
+  totalRunners: number;
+  /** 完走者数。 */
+  finishers: number;
+  /** 全体完走率。 */
+  finishRate: number | null;
+  /** 地点ごとの分析（コース順、ゴールは末尾）。 */
+  checkpoints: CheckpointFinishAnalysis[];
+  notes: string[];
+}

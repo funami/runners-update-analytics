@@ -1,0 +1,39 @@
+{
+  "name": "runners-update-analytics",
+  "version": "0.1.0",
+  "description": "RUNNET ランナーズアップデート（大会結果）を取得・集計し、自己完結型の可視化ダッシュボードを生成するツール",
+  "type": "module",
+  "bin": {
+    "rua": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "rua": "tsx src/cli.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/*.test.ts",
+    "demo": "tsx src/cli.ts analyze fixtures/sample-race.json -o out"
+  },
+  "keywords": [
+    "runnet",
+    "running",
+    "marathon",
+    "analytics",
+    "dashboard",
+    "scraper"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

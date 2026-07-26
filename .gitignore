@@ -1,0 +1,8 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+# 取得した生HTMLキャッシュ（サイズが大きくなりがちなので既定で無視）
+cache/
+data/*.html
