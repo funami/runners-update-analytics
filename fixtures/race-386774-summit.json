@@ -2,6 +2,42 @@
   "raceId": "386774",
   "kind": "山頂総合",
   "startTime": "07:00",
-  "checkpointCutoffs": { "Finish": "4:30:00" },
-  "runnetApi": { "categoryKind": "general", "categoryId": "1" }
+  "checkpointCutoffs": {
+    "Finish": "4:30:00"
+  },
+  "runnetApi": {
+    "categoryKind": "general",
+    "categoryId": "1"
+  },
+  "weather": {
+    "start": {
+      "station": "河口湖",
+      "time": "07:00",
+      "tempC": 24.3,
+      "humidityPct": 84,
+      "condition": "曇",
+      "windDir": "北西",
+      "windSpeedMs": 0.9,
+      "pressureHpa": 916.8,
+      "sourceUrl": "https://www.data.jma.go.jp/stats/etrn/view/hourly_s1.php?prec_no=49&block_no=47640&year=2026&month=7&day=24&view="
+    },
+    "finish": {
+      "station": "富士山",
+      "time": "12:00",
+      "tempC": 10.1,
+      "humidityPct": 56,
+      "pressureHpa": 651.9,
+      "extraTemps": [
+        {
+          "time": "10:00",
+          "tempC": 9.5
+        },
+        {
+          "time": "11:00",
+          "tempC": 9.9
+        }
+      ],
+      "sourceUrl": "https://www.data.jma.go.jp/stats/etrn/view/hourly_s1.php?prec_no=50&block_no=47639&year=2026&month=7&day=24&view="
+    }
+  }
 }

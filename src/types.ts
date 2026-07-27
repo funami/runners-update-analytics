@@ -81,6 +81,38 @@ export interface RunnetApiSource {
   isFixed?: 'auto' | boolean;
 }
 
+/** ある地点・時刻の気象観測値（気象庁 過去の気象データ検索より）。 */
+export interface WeatherObservation {
+  /** 観測地点名（例: "河口湖", "富士山"）。 */
+  station: string;
+  /** 観測時刻 "HH:MM"。 */
+  time: string;
+  /** 気温(℃)。 */
+  tempC?: number;
+  /** 湿度(%)。 */
+  humidityPct?: number;
+  /** 天気（例: "晴れ", "曇"）。無人観測地点では欠測のことがある。 */
+  condition?: string;
+  /** 風向（例: "北北西"）。無人観測地点では欠測のことがある。 */
+  windDir?: string;
+  /** 風速(m/s)。 */
+  windSpeedMs?: number;
+  /** 現地気圧(hPa)。 */
+  pressureHpa?: number;
+  /** 主観測時刻より前の時間帯の気温推移（例: 選手がゴールし始める時間帯）。時刻の昇順。 */
+  extraTemps?: { time: string; tempC: number }[];
+  /** 元データ（気象庁 過去の気象データ検索）のページ URL。 */
+  sourceUrl?: string;
+}
+
+/** レースのスタート/ゴール地点の気象記録（気象庁データより手動転記）。 */
+export interface RaceWeather {
+  /** スタート地点（号砲時刻）の観測。 */
+  start?: WeatherObservation;
+  /** ゴール地点（関門閉鎖時刻等）の観測。 */
+  finish?: WeatherObservation;
+}
+
 /** レース 1 種目ぶんの取得定義。 */
 export interface RaceManifest {
   /** RUNNET raceId。 */
@@ -104,6 +136,8 @@ export interface RaceManifest {
    * ゴール以外の地点（中間関門）に指定しても現状は集計に影響しない。
    */
   checkpointCutoffs?: Record<string, string>;
+  /** スタート/ゴール地点の気象記録（任意）。 */
+  weather?: RaceWeather;
 }
 
 /** 選手ごとの各地点通過記録（Bib で突き合わせ済み）。 */
@@ -137,6 +171,8 @@ export interface SplitsDataset {
   /** Bib で突き合わせた選手別記録。 */
   runners: RunnerSplits[];
   notes: string[];
+  /** スタート/ゴール地点の気象記録（任意）。 */
+  weather?: RaceWeather;
 }
 
 /** 通過時間帯(1分刻み等) 1 ビンの集計。 */
@@ -195,4 +231,6 @@ export interface RaceAnalysis {
   /** 地点ごとの分析（コース順、ゴールは末尾）。 */
   checkpoints: CheckpointFinishAnalysis[];
   notes: string[];
+  /** スタート/ゴール地点の気象記録（任意）。 */
+  weather?: RaceWeather;
 }

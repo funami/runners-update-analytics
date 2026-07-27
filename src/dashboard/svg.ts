@@ -91,6 +91,15 @@ export function stackedBarSvg(cp: CheckpointFinishAnalysis): string {
       );
     }
   });
+  // 選手ハイライト用の列オーバーレイ（既定は非表示、JS でその選手のビンにのみ表示）
+  bins.forEach((b, i) => {
+    const x = m.left + i * band;
+    parts.push(
+      `<rect class="hl-col" data-cp="${esc(cp.checkpoint)}" data-bin="${
+        b.startSec
+      }" x="${x.toFixed(1)}" y="${m.top}" width="${band.toFixed(1)}" height="${ih}"/>`,
+    );
+  });
   // ベースライン
   parts.push(
     `<line x1="${m.left}" y1="${m.top + ih}" x2="${m.left + iw}" y2="${
@@ -182,6 +191,19 @@ export function rateLineSvg(cp: CheckpointFinishAnalysis): string {
         )}</text>`,
       );
     }
+  }
+  // 選手ハイライト用の列オーバーレイ + マーカーの強調リング
+  for (const p of pts) {
+    const px = x(p.i);
+    const py = y(p.b.finishRate!);
+    parts.push(
+      `<rect class="hl-col" data-cp="${esc(cp.checkpoint)}" data-bin="${
+        p.b.startSec
+      }" x="${(px - band / 2).toFixed(1)}" y="${m.top}" width="${band.toFixed(1)}" height="${ih}"/>`,
+      `<circle class="hl-ring" data-cp="${esc(cp.checkpoint)}" data-bin="${
+        p.b.startSec
+      }" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="9"/>`,
+    );
   }
   parts.push(
     `<line x1="${m.left}" y1="${m.top + ih}" x2="${m.left + iw}" y2="${

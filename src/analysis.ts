@@ -133,6 +133,7 @@ export function analyze(dataset: SplitsDataset, binMinutes = 1): RaceAnalysis {
     finishRate: totalRunners > 0 ? finishers / totalRunners : null,
     checkpoints,
     notes,
+    weather: dataset.weather,
   };
 }
 

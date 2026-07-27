@@ -264,6 +264,7 @@ async function ingestFromRunnetApi(
     tables,
     runners,
     notes,
+    weather: manifest.weather,
   };
 }
 
@@ -322,6 +323,7 @@ export async function ingestManifest(
     tables,
     runners,
     notes,
+    weather: manifest.weather,
   };
 }
 

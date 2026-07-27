@@ -6,16 +6,17 @@
  * 選手別の通過タイム表と「通過時刻ごとの完走率」を集計・可視化する。
  */
 
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
+import { resolve, dirname, join } from 'node:path';
 import { Command } from 'commander';
-import type { RaceManifest, SplitsDataset } from './types.js';
+import type { RaceAnalysis, RaceManifest, SplitsDataset } from './types.js';
 import { ingestManifest, loadManifest } from './ingest.js';
 import { fetchRaceMeta } from './scraper/runnetApi.js';
 import { analyze, buildWideTable, buildFinishRateTable } from './analysis.js';
 import { generateDashboard } from './dashboard/generate.js';
+import { generateIndexPage, type RaceIndexEntry } from './dashboard/indexPage.js';
 import { toCsv } from './util/csv.js';
-import { setQuiet, info } from './util/logger.js';
+import { setQuiet, info, warn } from './util/logger.js';
 
 const program = new Command();
 program
@@ -155,6 +156,42 @@ program
       );
     }
     console.error(`\n  → ダッシュボード: ${resolve(outDir, 'dashboard.html')}`);
+  });
+
+program
+  .command('index')
+  .description(
+    '出力ディレクトリ直下の各レースフォルダ(analysis.json を含む)を集めて目次ページ(index.html)を生成',
+  )
+  .argument('[dir]', '走査するディレクトリ', 'out')
+  .option('-o, --out <file>', '出力先 HTML（省略時は <dir>/index.html）')
+  .option('-t, --title <title>', '目次ページのタイトル')
+  .action(async (dir: string, opts: { out?: string; title?: string }) => {
+    setQuiet(program.opts().quiet);
+    const baseDir = resolve(process.cwd(), dir);
+    const children = await readdir(baseDir, { withFileTypes: true });
+
+    const entries: RaceIndexEntry[] = [];
+    for (const child of children) {
+      if (!child.isDirectory()) continue;
+      const analysisPath = join(baseDir, child.name, 'analysis.json');
+      try {
+        const text = await readFile(analysisPath, 'utf8');
+        const analysis = JSON.parse(text) as RaceAnalysis;
+        entries.push({ dir: child.name, analysis });
+      } catch {
+        warn(`スキップ: ${child.name}（analysis.json が見つかりません）`);
+      }
+    }
+
+    if (entries.length === 0) {
+      throw new Error(`${baseDir} 配下に analysis.json を含むレースフォルダが見つかりません。`);
+    }
+
+    const html = generateIndexPage(entries, { title: opts.title });
+    const outPath = opts.out ? resolve(process.cwd(), opts.out) : resolve(baseDir, 'index.html');
+    await writeOut(outPath, html);
+    console.error(`目次ページを生成しました: ${entries.length} レース`);
   });
 
 program.parseAsync(process.argv).catch((err) => {

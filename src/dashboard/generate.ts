@@ -1,12 +1,29 @@
 /** RaceAnalysis + SplitsDataset から自己完結型 HTML ダッシュボードを生成する。 */
 
-import type { RaceAnalysis, SplitsDataset } from '../types.js';
+import type { RaceAnalysis, SplitsDataset, WeatherObservation } from '../types.js';
 import { buildWideTable } from '../analysis.js';
 import { formatSeconds } from '../util/time.js';
 import { esc, stackedBarSvg, rateLineSvg } from './svg.js';
+import { weatherDetail } from './weather.js';
 
 function pct(v: number | null): string {
   return v == null ? '-' : `${(v * 100).toFixed(1)}%`;
+}
+
+function weatherGroupHtml(label: string, w: WeatherObservation): string {
+  const detail = esc(weatherDetail(w));
+  const content = w.sourceUrl
+    ? `<a href="${esc(w.sourceUrl)}" target="_blank" rel="noopener noreferrer">${detail}</a>`
+    : detail;
+  return `<span class="w-label">${label}（${esc(w.station)}）</span>${content}`;
+}
+
+function weatherHtml(weather: RaceAnalysis['weather']): string {
+  if (!weather || (!weather.start && !weather.finish)) return '';
+  const groups: string[] = [];
+  if (weather.start) groups.push(weatherGroupHtml('スタート', weather.start));
+  if (weather.finish) groups.push(weatherGroupHtml('ゴール', weather.finish));
+  return `<p class="sub weather">${groups.join('<span class="w-sep">｜</span>')}</p>`;
 }
 
 function kpiCard(label: string, value: string, sub?: string): string {
@@ -75,22 +92,35 @@ function wideTableHtml(dataset: SplitsDataset): string {
     .slice(1)
     .map(
       (r) =>
-        `<tr>${r
+        `<tr data-bib="${esc(String(r[0]))}" tabindex="0">${r
           .map((c, i) => `<td class="${i >= 2 ? 'num' : ''}">${esc(String(c))}</td>`)
           .join('')}</tr>`,
     )
     .join('');
   return `<details>
-    <summary>選手別 通過タイム表（${rows.length - 1} 名 / 表形式データ）</summary>
+    <summary>選手別 通過タイム表（${rows.length - 1} 名 / 表形式データ・行クリックでグラフ上の位置を表示）</summary>
     <div class="tbl-wrap">
     <table class="data wide"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
     </div>
   </details>`;
 }
 
+/** 選手検索・ハイライト用にクライアントへ渡すデータ（各選手の地点別グロス秒）。 */
+function buildClientRunners(
+  dataset: SplitsDataset,
+): { bib: string; name: string; finished: boolean; lastCheckpoint: string | null; splits: Record<string, number> }[] {
+  return dataset.runners.map((r) => ({
+    bib: r.bib,
+    name: r.name ?? '',
+    finished: r.finished,
+    lastCheckpoint: r.lastCheckpoint ?? null,
+    splits: r.grossByCheckpoint,
+  }));
+}
+
 /** ダッシュボード HTML を生成。 */
 export function generateDashboard(analysis: RaceAnalysis, dataset: SplitsDataset): string {
-  const title = [analysis.raceName, analysis.kind].filter(Boolean).join(' / ') || 'RUNNET 完走率分析';
+  const title = [analysis.raceName, analysis.kind].filter(Boolean).join(' / ') || 'ランナーズアップデート 分析';
   const meta = [
     analysis.raceDate ? `開催日 ${analysis.raceDate}` : '',
     analysis.kind ? `種目 ${analysis.kind}` : '',
@@ -108,6 +138,11 @@ export function generateDashboard(analysis: RaceAnalysis, dataset: SplitsDataset
         .join('')}</ul></details>`
     : '';
 
+  const binSec = Math.max(1, Math.round(analysis.binMinutes * 60));
+  const clientData = { binSec, runners: buildClientRunners(dataset) };
+  // </script> でスクリプトタグが閉じてしまわないようエスケープ
+  const clientDataJson = JSON.stringify(clientData).replace(/</g, '\\u003c');
+
   return `<!doctype html>
 <html lang="ja">
 <head>
@@ -120,6 +155,7 @@ export function generateDashboard(analysis: RaceAnalysis, dataset: SplitsDataset
   --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
   --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
   --c-finish:#1baf7a; --c-dnf:#d7d5cc; --c-rate:#2a78d6; --good:#006300;
+  --hl:#ff6a00; --hl-soft:rgba(255,106,0,.28);
 }
 @media (prefers-color-scheme: dark){
   :root:where(:not([data-theme="light"])){
@@ -136,11 +172,16 @@ export function generateDashboard(analysis: RaceAnalysis, dataset: SplitsDataset
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--ink);
   font-family:system-ui,-apple-system,"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;
-  line-height:1.5;padding:24px;}
+  line-height:1.5;padding:24px 24px 140px;}
 .wrap{max-width:1040px;margin:0 auto}
 header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
 h1{font-size:1.5rem;margin:0 0 4px}
 .sub{color:var(--ink2);font-size:.9rem;margin:0}
+.weather{font-size:.8rem;margin-top:6px}
+.w-label{color:var(--muted);margin-right:4px}
+.w-sep{margin:0 12px;color:var(--border)}
+.weather a{color:inherit;text-decoration:underline;text-decoration-color:var(--border);text-underline-offset:2px}
+.weather a:hover{text-decoration-color:var(--c-rate)}
 .theme-btn{border:1px solid var(--border);background:var(--surface);color:var(--ink2);
   border-radius:8px;padding:6px 10px;font-size:.85rem;cursor:pointer}
 .kpis{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}
@@ -182,9 +223,44 @@ rect,circle{transition:opacity .1s}
   background:var(--ink);color:var(--page);font-size:.8rem;line-height:1.4;
   border-radius:8px;padding:6px 10px;box-shadow:0 2px 10px rgba(0,0,0,.25);
   pointer-events:none;white-space:nowrap}
+.hl-col{fill:var(--hl-soft);opacity:0;pointer-events:none;transition:opacity .12s ease}
+.hl-col.hl-active{opacity:1}
+.hl-ring{fill:none;stroke:var(--hl);stroke-width:2.5;opacity:0;pointer-events:none;transition:opacity .12s ease}
+.hl-ring.hl-active{opacity:1}
+table.data.wide tr[data-bib]{cursor:pointer}
+table.data.wide tr[data-bib]:hover td,table.data.wide tr[data-bib]:focus td{background:var(--border)}
+table.data.wide tr[data-bib].row-selected td{background:var(--hl-soft)}
+.runner-float{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:300;
+  width:min(94vw,640px);background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.22);padding:10px 14px;font-size:.85rem}
+.rf-row{display:flex;gap:8px;align-items:center;position:relative}
+.rf-row input{flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border);
+  background:var(--page);color:var(--ink);font-size:.85rem;min-width:0}
+.rf-clear{border:1px solid var(--border);background:var(--page);color:var(--ink2);
+  border-radius:8px;padding:7px 12px;cursor:pointer;font-size:.8rem;white-space:nowrap}
+.rf-suggest{position:absolute;left:0;right:0;bottom:calc(100% + 8px);background:var(--surface);
+  border:1px solid var(--border);border-radius:10px;max-height:min(50vh,320px);overflow:auto;
+  box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.rf-suggest .item{padding:7px 12px;cursor:pointer;display:flex;justify-content:space-between;
+  gap:10px;border-bottom:1px solid var(--border);font-size:.82rem}
+.rf-suggest .item:last-child{border-bottom:none}
+.rf-suggest .item:hover,.rf-suggest .item.active{background:var(--border)}
+.rf-result{margin-top:10px;border-top:1px solid var(--border);padding-top:10px}
+.rf-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rf-head b{font-size:1rem}
+.rf-bib{color:var(--ink2);font-size:.78rem}
+.rf-status{font-size:.72rem;border-radius:6px;padding:1px 7px}
+.rf-status.fin{background:var(--c-finish);color:#fff}
+.rf-status.dnf{background:var(--c-dnf);color:var(--ink)}
+.rf-close{margin-left:auto;border:none;background:none;color:var(--ink2);font-size:1.1rem;
+  cursor:pointer;line-height:1;padding:2px 4px}
+.rf-splits{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.rf-chip{background:var(--page);border:1px solid var(--border);border-radius:7px;
+  padding:3px 8px;font-size:.76rem;white-space:nowrap}
 </style>
 </head>
 <body>
+<script id="rua-runner-data" type="application/json">${clientDataJson}</script>
 <div id="chart-tip" class="chart-tip" role="status" hidden></div>
 <div class="wrap">
 <header>
@@ -192,6 +268,7 @@ rect,circle{transition:opacity .1s}
     <h1>${esc(title)}</h1>
     <p class="sub">${esc(meta)}</p>
     <p class="sub">経過時間ごとの完走率 — 各地点をその経過時間帯に通過した選手のうち、山頂ゴールに到達した割合</p>
+    ${weatherHtml(analysis.weather)}
   </div>
   <button class="theme-btn" onclick="(function(){var r=document.documentElement;var d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark')})()">◐ テーマ切替</button>
 </header>
@@ -213,9 +290,21 @@ ${notes}
   生成: ${esc(analysis.fetchedAt)} ・ このツール runners-update-analytics による自動生成。<br>
   データ出典: RUNNET ランナーズアップデート（${esc(
     analysis.raceId ? `raceId=${analysis.raceId}` : '大会結果',
-  )}）。速報値は暫定であり、確報で変動する場合があります。
+  )}）。速報値は暫定であり、確報で変動する場合があります。${
+    analysis.weather ? '<br>気象データ出典: 気象庁 過去の気象データ検索（河口湖・富士山）。' : ''
+  }
 </footer>
 </div>
+
+<div id="runner-float" class="runner-float">
+  <div class="rf-row">
+    <input id="rf-input" type="text" placeholder="選手名 または Bib で検索" autocomplete="off">
+    <button id="rf-clear" class="rf-clear" type="button" hidden>クリア</button>
+    <div id="rf-suggest" class="rf-suggest" hidden></div>
+  </div>
+  <div id="rf-result" class="rf-result" hidden></div>
+</div>
+
 <script>
 function showChartTip(evt, el) {
   var tip = document.getElementById('chart-tip');
@@ -243,6 +332,176 @@ document.addEventListener('keydown', function (evt) {
     if (tip) tip.hidden = true;
   }
 });
+
+(function () {
+  var dataEl = document.getElementById('rua-runner-data');
+  var DATA = dataEl ? JSON.parse(dataEl.textContent) : { binSec: 60, runners: [] };
+  var BIN_SEC = DATA.binSec || 60;
+  var RUNNERS = DATA.runners || [];
+  var byBib = {};
+  RUNNERS.forEach(function (r) { byBib[String(r.bib)] = r; });
+
+  // 地点 x ビン -> ハイライト対象 SVG 要素の索引
+  var hlIndex = {};
+  document.querySelectorAll('[data-cp][data-bin]').forEach(function (el) {
+    var key = el.getAttribute('data-cp') + '|' + el.getAttribute('data-bin');
+    (hlIndex[key] = hlIndex[key] || []).push(el);
+  });
+
+  function fmtSec(total) {
+    if (total == null || !isFinite(total)) return '-';
+    var t = Math.round(total);
+    var h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+    var p = function (n) { return String(n).padStart(2, '0'); };
+    return h > 0 ? (h + ':' + p(m) + ':' + p(s)) : (m + ':' + p(s));
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function clearHighlights() {
+    document.querySelectorAll('.hl-active').forEach(function (el) { el.classList.remove('hl-active'); });
+  }
+
+  function clearRowSelection() {
+    document.querySelectorAll('tr.row-selected').forEach(function (tr) { tr.classList.remove('row-selected'); });
+  }
+
+  function highlightRunner(runner) {
+    clearHighlights();
+    Object.keys(runner.splits || {}).forEach(function (cp) {
+      var gross = runner.splits[cp];
+      if (gross == null) return;
+      var binStart = Math.floor(gross / BIN_SEC) * BIN_SEC;
+      var key = cp + '|' + binStart;
+      (hlIndex[key] || []).forEach(function (el) { el.classList.add('hl-active'); });
+    });
+  }
+
+  function renderResult(runner) {
+    var box = document.getElementById('rf-result');
+    if (!runner) {
+      box.hidden = true;
+      box.innerHTML = '';
+      return;
+    }
+    var chips = Object.keys(runner.splits || {}).map(function (cp) {
+      return '<span class="rf-chip">' + escHtml(cp) + ' ' + fmtSec(runner.splits[cp]) + '</span>';
+    }).join('');
+    box.innerHTML =
+      '<div class="rf-head"><b>' + escHtml(runner.name || '(氏名不明)') + '</b>' +
+      '<span class="rf-bib">Bib ' + escHtml(runner.bib) + '</span>' +
+      '<span class="rf-status ' + (runner.finished ? 'fin' : 'dnf') + '">' + (runner.finished ? '完走' : '未完走') + '</span>' +
+      '<button id="rf-close" class="rf-close" type="button" aria-label="閉じる">×</button></div>' +
+      '<div class="rf-splits">' + chips + '</div>';
+    box.hidden = false;
+    var closeBtn = document.getElementById('rf-close');
+    if (closeBtn) closeBtn.addEventListener('click', function () { selectRunner(null); });
+  }
+
+  function selectRunner(runner) {
+    clearRowSelection();
+    if (runner) {
+      highlightRunner(runner);
+      var bibStr = String(runner.bib);
+      var rows = document.querySelectorAll('tr[data-bib]');
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].getAttribute('data-bib') === bibStr) {
+          rows[i].classList.add('row-selected');
+          break;
+        }
+      }
+    } else {
+      clearHighlights();
+    }
+    renderResult(runner);
+  }
+
+  function selectRunnerByBib(bib) {
+    var r = byBib[String(bib)];
+    if (r) selectRunner(r);
+  }
+
+  var input = document.getElementById('rf-input');
+  var suggestBox = document.getElementById('rf-suggest');
+  var clearBtn = document.getElementById('rf-clear');
+
+  function search(q) {
+    q = q.trim().toLowerCase();
+    if (!q) return [];
+    var exact = [], starts = [], contains = [];
+    RUNNERS.forEach(function (r) {
+      var bib = String(r.bib).toLowerCase();
+      var name = String(r.name || '').toLowerCase();
+      if (bib === q) { exact.push(r); return; }
+      if (bib.indexOf(q) === 0 || name.indexOf(q) === 0) { starts.push(r); return; }
+      if (bib.indexOf(q) !== -1 || name.indexOf(q) !== -1) { contains.push(r); }
+    });
+    return exact.concat(starts, contains).slice(0, 30);
+  }
+
+  function renderSuggestions(list) {
+    if (!list.length) {
+      suggestBox.hidden = true;
+      suggestBox.innerHTML = '';
+      return;
+    }
+    suggestBox.innerHTML = list.map(function (r) {
+      return '<div class="item" data-bib="' + escHtml(r.bib) + '">' +
+        '<span>' + escHtml(r.name || '(氏名不明)') + '</span>' +
+        '<span class="rf-bib">Bib ' + escHtml(r.bib) + (r.finished ? ' ・完走' : '') + '</span></div>';
+    }).join('');
+    suggestBox.hidden = false;
+  }
+
+  if (input) {
+    input.addEventListener('input', function () {
+      clearBtn.hidden = !input.value;
+      renderSuggestions(search(input.value));
+    });
+    input.addEventListener('keydown', function (evt) {
+      if (evt.key === 'Enter') {
+        var list = search(input.value);
+        if (list.length >= 1) selectRunnerByBib(list[0].bib);
+        suggestBox.hidden = true;
+      } else if (evt.key === 'Escape') {
+        suggestBox.hidden = true;
+      }
+    });
+  }
+  if (suggestBox) {
+    suggestBox.addEventListener('click', function (evt) {
+      var item = evt.target.closest('.item');
+      if (!item) return;
+      selectRunnerByBib(item.getAttribute('data-bib'));
+      suggestBox.hidden = true;
+    });
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      input.value = '';
+      clearBtn.hidden = true;
+      suggestBox.hidden = true;
+      selectRunner(null);
+      input.focus();
+    });
+  }
+  document.addEventListener('click', function (evt) {
+    if (suggestBox && !suggestBox.hidden && !evt.target.closest('#runner-float')) suggestBox.hidden = true;
+  });
+
+  // 選手別 通過タイム表: 行クリック/Enter でその選手をグラフ上にハイライト
+  document.addEventListener('click', function (evt) {
+    var tr = evt.target.closest('tr[data-bib]');
+    if (tr) selectRunnerByBib(tr.getAttribute('data-bib'));
+  });
+  document.addEventListener('keydown', function (evt) {
+    if (evt.key !== 'Enter') return;
+    var tr = evt.target.closest && evt.target.closest('tr[data-bib]');
+    if (tr) selectRunnerByBib(tr.getAttribute('data-bib'));
+  });
+})();
 </script>
 </body>
 </html>`;
