@@ -206,6 +206,8 @@ body{margin:0;background:var(--page);color:var(--ink);
   font-family:system-ui,-apple-system,"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;
   line-height:1.5;padding:24px 24px 140px;}
 .wrap{max-width:1040px;margin:0 auto}
+.back-link{display:inline-block;color:var(--ink2);font-size:.85rem;text-decoration:none;margin-bottom:10px}
+.back-link:hover{color:var(--ink);text-decoration:underline}
 header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
 h1{font-size:1.5rem;margin:0 0 4px}
 .note-badge{display:inline-block;font-size:.68rem;font-weight:600;vertical-align:middle;
@@ -298,6 +300,7 @@ table.data.wide tr[data-bib].row-selected td{background:var(--hl-soft)}
 <script id="rua-runner-data" type="application/json">${clientDataJson}</script>
 <div id="chart-tip" class="chart-tip" role="status" hidden></div>
 <div class="wrap">
+<a class="back-link" href="../index.html">← 大会一覧に戻る</a>
 <header>
   <div>
     <h1>${esc(title)}${analysis.note ? ` <span class="note-badge">${esc(analysis.note)}</span>` : ''}</h1>
