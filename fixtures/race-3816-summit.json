@@ -8,5 +8,36 @@
   "runnetApi": {
     "categoryKind": "general",
     "categoryId": "1"
+  },
+  "weather": {
+    "start": {
+      "station": "河口湖",
+      "time": "07:00",
+      "tempC": 22.1,
+      "humidityPct": 81,
+      "condition": "もや",
+      "windDir": "南南東",
+      "windSpeedMs": 0.8,
+      "pressureHpa": 916.7,
+      "sourceUrl": "https://www.data.jma.go.jp/stats/etrn/view/hourly_s1.php?prec_no=49&block_no=47640&year=2006&month=7&day=28&view="
+    },
+    "finish": {
+      "station": "富士山",
+      "time": "12:00",
+      "tempC": 6.2,
+      "humidityPct": 100,
+      "pressureHpa": 648.7,
+      "extraTemps": [
+        {
+          "time": "10:00",
+          "tempC": 5.6
+        },
+        {
+          "time": "11:00",
+          "tempC": 6.2
+        }
+      ],
+      "sourceUrl": "https://www.data.jma.go.jp/stats/etrn/view/hourly_s1.php?prec_no=50&block_no=47639&year=2006&month=7&day=28&view="
+    }
   }
 }

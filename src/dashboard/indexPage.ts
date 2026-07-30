@@ -27,6 +27,12 @@ function raceCard(entry: RaceIndexEntry): string {
   const title = [a.raceName, a.kind].filter(Boolean).join(' / ') || entry.dir;
   const meta = [a.raceDate, a.startTime ? `号砲 ${a.startTime}` : ''].filter(Boolean).join(' ・ ');
   const href = `${entry.dir}/dashboard.html`;
+  const finishOnly = a.checkpoints.length === 1;
+  const kpis = finishOnly
+    ? `<div class="ckpi"><div class="ckpi-v">${a.finishers}</div><div class="ckpi-l">記録あり選手数</div></div>`
+    : `<div class="ckpi"><div class="ckpi-v">${a.totalRunners}</div><div class="ckpi-l">エントリー</div></div>
+      <div class="ckpi"><div class="ckpi-v">${a.finishers}</div><div class="ckpi-l">完走者</div></div>
+      <div class="ckpi"><div class="ckpi-v">${pct(a.finishRate)}</div><div class="ckpi-l">完走率</div></div>`;
   return `<a class="card" href="${esc(href)}">
     <div class="card-head">
       <h2>${esc(title)}</h2>
@@ -35,9 +41,7 @@ function raceCard(entry: RaceIndexEntry): string {
     <p class="card-meta">${esc(meta)}</p>
     ${weatherLine(a.weather)}
     <div class="card-kpis">
-      <div class="ckpi"><div class="ckpi-v">${a.totalRunners}</div><div class="ckpi-l">エントリー</div></div>
-      <div class="ckpi"><div class="ckpi-v">${a.finishers}</div><div class="ckpi-l">完走者</div></div>
-      <div class="ckpi"><div class="ckpi-v">${pct(a.finishRate)}</div><div class="ckpi-l">完走率</div></div>
+      ${kpis}
     </div>
   </a>`;
 }

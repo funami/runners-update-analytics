@@ -227,10 +227,24 @@ async function ingestFromRunnetApi(
   const locations = category.locations;
   for (let i = 0; i < locations.length; i++) {
     const loc = locations[i];
-    const order = i + 1;
-    const goal = loc.isFinish === true || i === locations.length - 1;
+    let order = i + 1;
+    let goal = loc.isFinish === true || i === locations.length - 1;
     // 古い大会では地点名が空/空白のことがある（中間関門が無く Finish のみ記録）。
-    const name = loc.name.trim() || (goal ? 'Finish' : `地点${order}`);
+    const rawName = loc.name.trim() || (goal ? 'Finish' : `地点${order}`);
+    // 悪天候等でコースが短縮された大会向けの表示名上書き（例: "Finish" -> "五合目"）。
+    const name = manifest.locationNames?.[rawName] ?? rawName;
+    // API の地点配列順がコース順と一致しない大会向けの明示的な並び替え。
+    if (manifest.locationOrder) {
+      const idx = manifest.locationOrder.indexOf(name);
+      if (idx === -1) {
+        warn(
+          `locationOrder に地点 "${name}" が含まれていません。元の順序(${order})のまま扱います。`,
+        );
+      } else {
+        order = idx + 1;
+        goal = idx === manifest.locationOrder.length - 1;
+      }
+    }
     info(`checkpoint "${name}": RUNNET API から取得 (location=${loc.id})`);
     const athletes = await fetchLocationAthletes(
       manifest.raceId,
@@ -247,7 +261,7 @@ async function ingestFromRunnetApi(
       source: `${RESULT_ONE_BASE}/api/races/${manifest.raceId}/${
         kind === 'general' ? 'general-categories' : 'categories'
       }/${api.categoryId}?location=${loc.id}`,
-      cutoffSeconds: parseTimeToSeconds(manifest.checkpointCutoffs?.[loc.name]),
+      cutoffSeconds: parseTimeToSeconds(manifest.checkpointCutoffs?.[name]),
       notes: [],
     });
   }

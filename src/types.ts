@@ -136,6 +136,19 @@ export interface RaceManifest {
    * ゴール以外の地点（中間関門）に指定しても現状は集計に影響しない。
    */
   checkpointCutoffs?: Record<string, string>;
+  /**
+   * runnetApi 取得時、API 上の地点名 -> 表示名の上書き。
+   * 例: 悪天候等でコースが短縮され、API 上は "Finish" でも実態は
+   * 「五合目打ち切り」だった大会で `{ "Finish": "五合目" }` のように使う。
+   * `checkpointCutoffs` は上書き後の名前で指定すること。
+   */
+  locationNames?: Record<string, string>;
+  /**
+   * runnetApi 取得時、地点の並び順を明示的に上書きする（表示名・上書き後の名前で指定）。
+   * API が返す地点配列の順序がコース順と一致しない大会向け。最後の要素をゴールとみなす
+   * （API の `isFinish` や配列末尾判定より優先される）。
+   */
+  locationOrder?: string[];
   /** スタート/ゴール地点の気象記録（任意）。 */
   weather?: RaceWeather;
 }

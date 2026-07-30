@@ -32,17 +32,20 @@ function kpiCard(label: string, value: string, sub?: string): string {
   )}</div>${sub ? `<div class="kpi-s">${esc(sub)}</div>` : ''}</div>`;
 }
 
-function checkpointSection(cp: RaceAnalysis['checkpoints'][number]): string {
-  const cutoff =
-    cp.finishRate50CutoffSec != null
+function checkpointSection(cp: RaceAnalysis['checkpoints'][number], finishOnly: boolean): string {
+  const cutoff = finishOnly
+    ? 'ゴール記録のみが公開されている大会のため、未完走者数・完走率は不明です。'
+    : cp.finishRate50CutoffSec != null
       ? `完走率50%割れの目安: 経過 ${formatSeconds(cp.finishRate50CutoffSec)} 以降`
       : cp.goal
         ? 'ゴール地点'
         : '完走率50%割れの時間帯は検出されませんでした';
 
   const rows = cp.bins
-    .map(
-      (b) => `<tr>
+    .map((b) =>
+      finishOnly
+        ? `<tr><td class="num">${esc(b.elapsedLabel)}</td><td class="num">${b.passers}</td></tr>`
+        : `<tr>
       <td class="num">${esc(b.elapsedLabel)}</td>
       <td class="num">${b.passers}</td>
       <td class="num">${b.finishers}</td>
@@ -51,17 +54,25 @@ function checkpointSection(cp: RaceAnalysis['checkpoints'][number]): string {
     )
     .join('');
 
+  const kpis = finishOnly
+    ? kpiCard('記録あり選手数', String(cp.totalPassers))
+    : `${kpiCard('通過者数', String(cp.totalPassers))}
+      ${kpiCard('完走者数', String(cp.totalFinishers))}
+      ${kpiCard('未完走者数', String(cp.totalPassers - cp.totalFinishers))}
+      ${kpiCard('通過者の完走率', pct(cp.overallFinishRate))}`;
+
   return `<section class="cp">
     <h2>${esc(cp.checkpoint)}${cp.goal ? ' <span class="badge">ゴール</span>' : ''}</h2>
     <div class="cp-kpis">
-      ${kpiCard('通過者数', String(cp.totalPassers))}
-      ${kpiCard('完走者数', String(cp.totalFinishers))}
-      ${kpiCard('未完走者数', String(cp.totalPassers - cp.totalFinishers))}
-      ${kpiCard('通過者の完走率', pct(cp.overallFinishRate))}
+      ${kpis}
     </div>
     <p class="cutoff">${esc(cutoff)}</p>
     <figure>
-      <figcaption>経過時間帯ごとの通過者数（<span class="sw sw-fin"></span>完走 / <span class="sw sw-dnf"></span>未完走）</figcaption>
+      <figcaption>${
+        finishOnly
+          ? '経過時間帯ごとのゴール到達者数'
+          : '経過時間帯ごとの通過者数（<span class="sw sw-fin"></span>完走 / <span class="sw sw-dnf"></span>未完走）'
+      }</figcaption>
       ${stackedBarSvg(cp)}
     </figure>
     ${
@@ -76,7 +87,11 @@ function checkpointSection(cp: RaceAnalysis['checkpoints'][number]): string {
       <summary>データ表（${cp.bins.length} 行）</summary>
       <div class="tbl-wrap">
       <table class="data">
-        <thead><tr><th>経過時間帯</th><th>通過者数</th><th>完走者数</th><th>完走率(%)</th></tr></thead>
+        <thead><tr>${
+          finishOnly
+            ? '<th>経過時間帯</th><th>到達者数</th>'
+            : '<th>経過時間帯</th><th>通過者数</th><th>完走者数</th><th>完走率(%)</th>'
+        }</tr></thead>
         <tbody>${rows}</tbody>
       </table>
       </div>
@@ -130,7 +145,11 @@ export function generateDashboard(analysis: RaceAnalysis, dataset: SplitsDataset
     .filter(Boolean)
     .join(' ・ ');
 
-  const sections = analysis.checkpoints.map((c) => checkpointSection(c)).join('\n');
+  // ゴール記録のみ公開されている大会（中間関門・未完走者数が不明）は
+  // エントリー数/完走率の表示を抑制する。
+  const finishOnly = analysis.checkpoints.length === 1;
+
+  const sections = analysis.checkpoints.map((c) => checkpointSection(c, finishOnly)).join('\n');
 
   const notes = analysis.notes.length
     ? `<details class="notes"><summary>注意・データ品質 (${analysis.notes.length})</summary><ul>${analysis.notes
@@ -274,11 +293,12 @@ table.data.wide tr[data-bib].row-selected td{background:var(--hl-soft)}
 </header>
 
 <div class="kpis">
-  ${kpiCard('エントリー(通過選手)', String(analysis.totalRunners))}
-  ${kpiCard('完走者', String(analysis.finishers))}
-  ${kpiCard('全体完走率', pct(analysis.finishRate))}
+  ${finishOnly ? '' : kpiCard('エントリー(通過選手)', String(analysis.totalRunners))}
+  ${kpiCard(finishOnly ? '記録あり選手数' : '完走者', String(analysis.finishers))}
+  ${finishOnly ? '' : kpiCard('全体完走率', pct(analysis.finishRate))}
   ${kpiCard('地点数', String(analysis.checkpoints.length))}
 </div>
+${finishOnly ? '<p class="sub">この大会はゴール記録のみが公開されており、エントリー数・完走率は不明です。</p>' : ''}
 
 ${sections}
 
