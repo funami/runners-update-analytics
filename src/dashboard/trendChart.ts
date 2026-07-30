@@ -55,8 +55,8 @@ interface SeriesSpec {
 
 export const TREND_SERIES: SeriesSpec[] = [
   { key: 'umagaeshi', label: '馬返し 通過者数', colorVar: '--tr-1' },
-  { key: 'gogome', label: '五合目 関門内通過者数', colorVar: '--tr-2' },
-  { key: 'hachigome', label: '八合目 関門内通過者数', colorVar: '--tr-3' },
+  { key: 'gogome', label: '五合目 関門通過者数', colorVar: '--tr-2' },
+  { key: 'hachigome', label: '八合目 関門通過者数', colorVar: '--tr-3' },
   { key: 'finishers', label: '完走者数（制限時間内）', colorVar: '--tr-4' },
 ];
 

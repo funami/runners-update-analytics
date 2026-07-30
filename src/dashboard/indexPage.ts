@@ -76,7 +76,7 @@ function trendSectionHtml(rows: TrendRow[]): string {
       <summary>データ表（${rows.length} 大会）</summary>
       <div class="tbl-wrap">
       <table class="data">
-        <thead><tr><th>大会</th><th>馬返し通過</th><th>五合目関門内</th><th>八合目関門内</th><th>完走者(制限時間内)</th></tr></thead>
+        <thead><tr><th>大会</th><th>馬返し通過</th><th>五合目関門通過</th><th>八合目関門通過</th><th>完走者(制限時間内)</th></tr></thead>
         <tbody>${bodyRows}</tbody>
       </table>
       </div>
