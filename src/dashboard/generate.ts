@@ -175,18 +175,24 @@ export function generateDashboard(analysis: RaceAnalysis, dataset: SplitsDataset
   --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
   --c-finish:#1baf7a; --c-dnf:#d7d5cc; --c-rate:#2a78d6; --good:#006300;
   --hl:#ff6a00; --hl-soft:rgba(255,106,0,.28);
+  --warn:#a15c00; --warn-soft:rgba(180,120,0,.14); --warn-border:rgba(180,120,0,.4);
 }
 @media (prefers-color-scheme: dark){
   :root:where(:not([data-theme="light"])){
     --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
     --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
     --c-finish:#199e70; --c-dnf:#4a4a46; --c-rate:#3987e5; --good:#0ca30c;
+    --warn:#e0a53a; --warn-soft:rgba(224,165,58,.14); --warn-border:rgba(224,165,58,.4);
   }
 }
 :root[data-theme="dark"]{
   --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
   --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
   --c-finish:#199e70; --c-dnf:#4a4a46; --c-rate:#3987e5; --good:#0ca30c;
+  --warn:#e0a53a; --warn-soft:rgba(224,165,58,.14); --warn-border:rgba(224,165,58,.4);
+}
+:root[data-theme="light"]{
+  --warn:#a15c00; --warn-soft:rgba(180,120,0,.14); --warn-border:rgba(180,120,0,.4);
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--ink);
@@ -195,6 +201,9 @@ body{margin:0;background:var(--page);color:var(--ink);
 .wrap{max-width:1040px;margin:0 auto}
 header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
 h1{font-size:1.5rem;margin:0 0 4px}
+.note-badge{display:inline-block;font-size:.68rem;font-weight:600;vertical-align:middle;
+  background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn-border);
+  border-radius:6px;padding:2px 8px;white-space:normal}
 .sub{color:var(--ink2);font-size:.9rem;margin:0}
 .weather{font-size:.8rem;margin-top:6px}
 .w-label{color:var(--muted);margin-right:4px}
@@ -284,7 +293,7 @@ table.data.wide tr[data-bib].row-selected td{background:var(--hl-soft)}
 <div class="wrap">
 <header>
   <div>
-    <h1>${esc(title)}</h1>
+    <h1>${esc(title)}${analysis.note ? ` <span class="note-badge">${esc(analysis.note)}</span>` : ''}</h1>
     <p class="sub">${esc(meta)}</p>
     <p class="sub">経過時間ごとの完走率 — 各地点をその経過時間帯に通過した選手のうち、山頂ゴールに到達した割合</p>
     ${weatherHtml(analysis.weather)}

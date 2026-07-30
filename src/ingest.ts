@@ -272,6 +272,7 @@ async function ingestFromRunnetApi(
   return {
     raceId: manifest.raceId,
     raceName: manifest.raceName ?? meta.raceName,
+    note: manifest.note,
     raceDate: manifest.raceDate ?? meta.raceDate,
     kind: manifest.kind ?? category.name,
     startTime: manifest.startTime,
@@ -331,6 +332,7 @@ export async function ingestManifest(
   return {
     raceId: manifest.raceId,
     raceName: manifest.raceName ?? tables.find((t) => t.splits.length)?.checkpoint,
+    note: manifest.note,
     raceDate: manifest.raceDate,
     kind: manifest.kind,
     startTime: manifest.startTime,

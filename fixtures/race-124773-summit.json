@@ -1,9 +1,13 @@
 {
   "raceId": "124773",
+  "note": "五合目関門打切",
   "kind": "山頂総合",
   "startTime": "07:00",
+  "locationNames": {
+    "Finish": "五合目"
+  },
   "checkpointCutoffs": {
-    "Finish": "4:30:00"
+    "五合目": "4:30:00"
   },
   "runnetApi": {
     "categoryKind": "general",

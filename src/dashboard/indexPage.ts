@@ -38,6 +38,7 @@ function raceCard(entry: RaceIndexEntry): string {
       <h2>${esc(title)}</h2>
       <span class="arrow">→</span>
     </div>
+    ${a.note ? `<p class="card-note"><span class="note-badge">${esc(a.note)}</span></p>` : ''}
     <p class="card-meta">${esc(meta)}</p>
     ${weatherLine(a.weather)}
     <div class="card-kpis">
@@ -67,16 +68,22 @@ export function generateIndexPage(entries: RaceIndexEntry[], opts?: { title?: st
   color-scheme: light dark;
   --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
   --border:rgba(11,11,11,.10); --c-finish:#1baf7a;
+  --warn:#a15c00; --warn-soft:rgba(180,120,0,.14); --warn-border:rgba(180,120,0,.4);
 }
 @media (prefers-color-scheme: dark){
   :root:where(:not([data-theme="light"])){
     --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
     --border:rgba(255,255,255,.10); --c-finish:#199e70;
+    --warn:#e0a53a; --warn-soft:rgba(224,165,58,.14); --warn-border:rgba(224,165,58,.4);
   }
 }
 :root[data-theme="dark"]{
   --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
   --border:rgba(255,255,255,.10); --c-finish:#199e70;
+  --warn:#e0a53a; --warn-soft:rgba(224,165,58,.14); --warn-border:rgba(224,165,58,.4);
+}
+:root[data-theme="light"]{
+  --warn:#a15c00; --warn-soft:rgba(180,120,0,.14); --warn-border:rgba(180,120,0,.4);
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--ink);

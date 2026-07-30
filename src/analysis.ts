@@ -123,6 +123,7 @@ export function analyze(dataset: SplitsDataset, binMinutes = 1): RaceAnalysis {
   return {
     raceId: dataset.raceId,
     raceName: dataset.raceName,
+    note: dataset.note,
     raceDate: dataset.raceDate,
     kind: dataset.kind,
     startTime: dataset.startTime,

@@ -119,6 +119,11 @@ export interface RaceManifest {
   raceId?: string;
   /** 大会名。 */
   raceName?: string;
+  /**
+   * 大会名に添える短い注記（例: "荒天のため五合目関門で打ち切り"）。
+   * ダッシュボード/目次ページの両方でバッジ表示される。
+   */
+  note?: string;
   /** 開催日 (YYYY-MM-DD)。 */
   raceDate?: string;
   /** 種目名（例: "山頂の部"）。 */
@@ -173,6 +178,8 @@ export interface RunnerSplits {
 export interface SplitsDataset {
   raceId?: string;
   raceName?: string;
+  /** 大会名に添える短い注記（例: "荒天のため五合目関門で打ち切り"）。 */
+  note?: string;
   raceDate?: string;
   kind?: string;
   startTime?: string;
@@ -230,6 +237,8 @@ export interface CheckpointFinishAnalysis {
 export interface RaceAnalysis {
   raceId?: string;
   raceName?: string;
+  /** 大会名に添える短い注記（例: "荒天のため五合目関門で打ち切り"）。 */
+  note?: string;
   raceDate?: string;
   kind?: string;
   startTime?: string;
