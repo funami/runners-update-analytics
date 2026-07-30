@@ -1,7 +1,7 @@
 /** RaceAnalysis + SplitsDataset から自己完結型 HTML ダッシュボードを生成する。 */
 
 import type { RaceAnalysis, SplitsDataset, WeatherObservation } from '../types.js';
-import { buildWideTable } from '../analysis.js';
+import { buildWideTable, starterCount } from '../analysis.js';
 import { formatSeconds } from '../util/time.js';
 import { esc, stackedBarSvg, rateLineSvg } from './svg.js';
 import { weatherDetail } from './weather.js';
@@ -308,12 +308,12 @@ table.data.wide tr[data-bib].row-selected td{background:var(--hl-soft)}
 </header>
 
 <div class="kpis">
-  ${finishOnly ? '' : kpiCard('エントリー(通過選手)', String(analysis.totalRunners))}
+  ${finishOnly ? '' : kpiCard('出走者', String(starterCount(analysis)))}
   ${kpiCard(finishOnly ? '記録あり選手数' : '完走者', String(analysis.finishers))}
   ${finishOnly ? '' : kpiCard('全体完走率', pct(analysis.finishRate))}
   ${kpiCard('地点数', String(analysis.checkpoints.length))}
 </div>
-${finishOnly ? '<p class="sub">この大会はゴール記録のみが公開されており、エントリー数・完走率は不明です。</p>' : ''}
+${finishOnly ? '<p class="sub">この大会はゴール記録のみが公開されており、出走者数・完走率は不明です。</p>' : ''}
 
 ${sections}
 

@@ -3,7 +3,9 @@
 import type { RaceAnalysis } from '../types.js';
 import { esc } from './svg.js';
 import { weatherCompact } from './weather.js';
+import { starterCount } from '../analysis.js';
 import type { CrossRunnerData } from './crossSearch.js';
+import { trendLineSvg, TREND_SERIES, type TrendRow } from './trendChart.js';
 
 function pct(v: number | null): string {
   return v == null ? '-' : `${(v * 100).toFixed(1)}%`;
@@ -31,7 +33,7 @@ function raceCard(entry: RaceIndexEntry): string {
   const finishOnly = a.checkpoints.length === 1;
   const kpis = finishOnly
     ? `<div class="ckpi"><div class="ckpi-v">${a.finishers}</div><div class="ckpi-l">記録あり選手数</div></div>`
-    : `<div class="ckpi"><div class="ckpi-v">${a.totalRunners}</div><div class="ckpi-l">エントリー</div></div>
+    : `<div class="ckpi"><div class="ckpi-v">${starterCount(a)}</div><div class="ckpi-l">出走者</div></div>
       <div class="ckpi"><div class="ckpi-v">${a.finishers}</div><div class="ckpi-l">完走者</div></div>
       <div class="ckpi"><div class="ckpi-v">${pct(a.finishRate)}</div><div class="ckpi-l">完走率</div></div>`;
   return `<a class="card" href="${esc(href)}" data-dir="${esc(entry.dir)}">
@@ -47,10 +49,45 @@ function raceCard(entry: RaceIndexEntry): string {
   </a>`;
 }
 
+function trendSectionHtml(rows: TrendRow[]): string {
+  if (rows.length < 2) return '';
+  const legend = TREND_SERIES.map(
+    (s) => `<span class="trend-legend-item"><span class="trend-sw" style="background:var(${s.colorVar})"></span>${esc(s.label)}</span>`,
+  ).join('');
+  const bodyRows = rows
+    .map(
+      (r) => `<tr>
+      <td class="num">第${r.raceNumber}回</td>
+      <td class="num">${r.umagaeshi ?? '-'}</td>
+      <td class="num">${r.gogome ?? '-'}</td>
+      <td class="num">${r.hachigome ?? '-'}</td>
+      <td class="num">${r.finishers ?? '-'}</td>
+    </tr>`,
+    )
+    .join('');
+  return `<section class="trend">
+    <h2>大会回次ごとの推移</h2>
+    <p class="sub">馬返しの通過者数、五合目・八合目の関門制限時間内通過者数、完走者数（ゴール制限時間内）の年度推移</p>
+    <div class="trend-legend">${legend}</div>
+    <figure>
+      ${trendLineSvg(rows)}
+    </figure>
+    <details>
+      <summary>データ表（${rows.length} 大会）</summary>
+      <div class="tbl-wrap">
+      <table class="data">
+        <thead><tr><th>大会</th><th>馬返し通過</th><th>五合目関門内</th><th>八合目関門内</th><th>完走者(制限時間内)</th></tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+      </div>
+    </details>
+  </section>`;
+}
+
 /** レース一覧の目次 HTML を生成する（開催日の新しい順）。 */
 export function generateIndexPage(
   entries: RaceIndexEntry[],
-  opts?: { title?: string; crossRunnerData?: CrossRunnerData },
+  opts?: { title?: string; crossRunnerData?: CrossRunnerData; trendRows?: TrendRow[] },
 ): string {
   const title = opts?.title ?? 'ランナーズアップデート 分析 — レース一覧';
   const sorted = entries.slice().sort((a, b) => {
@@ -62,6 +99,7 @@ export function generateIndexPage(
   const crossData = opts?.crossRunnerData ?? { races: [], runners: [] };
   // </script> でスクリプトタグが閉じてしまわないようエスケープ
   const crossDataJson = JSON.stringify(crossData).replace(/</g, '\\u003c');
+  const trendHtml = trendSectionHtml(opts?.trendRows ?? []);
 
   return `<!doctype html>
 <html lang="ja">
@@ -74,22 +112,30 @@ export function generateIndexPage(
   color-scheme: light dark;
   --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
   --border:rgba(11,11,11,.10); --c-finish:#1baf7a;
+  --grid:#e1e0d9; --axis:#c3c2b7;
   --warn:#a15c00; --warn-soft:rgba(180,120,0,.14); --warn-border:rgba(180,120,0,.4);
+  /* カテゴリカルパレット(dataviz スキル既定, スロット1/2/3/4) */
+  --tr-1:#2a78d6; --tr-2:#eb6834; --tr-3:#1baf7a; --tr-4:#eda100;
 }
 @media (prefers-color-scheme: dark){
   :root:where(:not([data-theme="light"])){
     --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
     --border:rgba(255,255,255,.10); --c-finish:#199e70;
+    --grid:#2c2c2a; --axis:#383835;
     --warn:#e0a53a; --warn-soft:rgba(224,165,58,.14); --warn-border:rgba(224,165,58,.4);
+    --tr-1:#3987e5; --tr-2:#d95926; --tr-3:#199e70; --tr-4:#c98500;
   }
 }
 :root[data-theme="dark"]{
   --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
   --border:rgba(255,255,255,.10); --c-finish:#199e70;
+  --grid:#2c2c2a; --axis:#383835;
   --warn:#e0a53a; --warn-soft:rgba(224,165,58,.14); --warn-border:rgba(224,165,58,.4);
+  --tr-1:#3987e5; --tr-2:#d95926; --tr-3:#199e70; --tr-4:#c98500;
 }
 :root[data-theme="light"]{
   --warn:#a15c00; --warn-soft:rgba(180,120,0,.14); --warn-border:rgba(180,120,0,.4);
+  --tr-1:#2a78d6; --tr-2:#eb6834; --tr-3:#1baf7a; --tr-4:#eda100;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--ink);
@@ -141,11 +187,38 @@ h1{font-size:1.5rem;margin:0 0 4px}
 .rs-chips{display:flex;gap:6px;flex-wrap:wrap}
 .rs-chip{background:var(--page);border:1px solid var(--border);border-radius:7px;
   padding:3px 8px;font-size:.76rem;white-space:nowrap}
+.trend{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:18px 20px;margin:20px 0}
+.trend h2{margin:0 0 4px;font-size:1.1rem}
+.trend-legend{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 4px;font-size:.8rem;color:var(--ink2)}
+.trend-legend-item{display:inline-flex;align-items:center;gap:6px}
+.trend-sw{display:inline-block;width:10px;height:10px;border-radius:2px}
+figure{margin:14px 0}
+figcaption{font-size:.85rem;color:var(--ink2);margin-bottom:4px}
+.chart{width:100%;height:auto;display:block}
+.chart .ax{fill:var(--muted);font-size:11px}
+.chart .axtitle{fill:var(--ink2);font-size:11px}
+.chart text{font-family:system-ui,sans-serif}
+.mark{cursor:pointer}
+.mark:hover,.mark:focus{opacity:.75}
+.mark:focus{outline:none}
+.tbl-wrap{overflow-x:auto}
+table.data{border-collapse:collapse;font-size:.82rem;width:100%;margin-top:8px}
+table.data th,table.data td{border-bottom:1px solid var(--border);padding:4px 8px;text-align:left;white-space:nowrap}
+table.data th{color:var(--ink2);font-weight:600}
+td.num,.num{text-align:right;font-variant-numeric:tabular-nums}
+details{margin:10px 0}
+summary{cursor:pointer;color:var(--ink2);font-size:.9rem}
+.chart-tip{position:fixed;z-index:100;max-width:min(90vw,320px);
+  background:var(--ink);color:var(--page);font-size:.8rem;line-height:1.4;
+  border-radius:8px;padding:6px 10px;box-shadow:0 2px 10px rgba(0,0,0,.25);
+  pointer-events:none;white-space:nowrap}
 footer{color:var(--muted);font-size:.75rem;margin-top:28px;border-top:1px solid var(--border);padding-top:12px}
 </style>
 </head>
 <body>
 <script id="rua-cross-data" type="application/json">${crossDataJson}</script>
+<div id="chart-tip" class="chart-tip" role="status" hidden></div>
 <div class="wrap">
 <header>
   <div>
@@ -154,6 +227,8 @@ footer{color:var(--muted);font-size:.75rem;margin-top:28px;border-top:1px solid 
   </div>
   <button class="theme-btn" onclick="(function(){var r=document.documentElement;var d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark')})()">◐ テーマ切替</button>
 </header>
+
+${trendHtml}
 
 <div class="search-box">
   <div class="search-row">
@@ -176,6 +251,32 @@ ${cards}
 <footer>runners-update-analytics による自動生成。</footer>
 </div>
 <script>
+function showChartTip(evt, el) {
+  var tip = document.getElementById('chart-tip');
+  var text = el.getAttribute('data-tip');
+  if (!tip || !text) return;
+  evt.stopPropagation();
+  tip.textContent = text;
+  tip.hidden = false;
+  var pad = 12;
+  var x = (evt.clientX != null ? evt.clientX : el.getBoundingClientRect().left);
+  var y = (evt.clientY != null ? evt.clientY : el.getBoundingClientRect().top);
+  var tw = tip.offsetWidth, th = tip.offsetHeight;
+  var left = Math.min(Math.max(pad, x + pad), window.innerWidth - tw - pad);
+  var top = Math.max(pad, y - th - pad);
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+document.addEventListener('click', function () {
+  var tip = document.getElementById('chart-tip');
+  if (tip) tip.hidden = true;
+});
+document.addEventListener('keydown', function (evt) {
+  if (evt.key === 'Escape') {
+    var tip = document.getElementById('chart-tip');
+    if (tip) tip.hidden = true;
+  }
+});
 (function () {
   var dataEl = document.getElementById('rua-cross-data');
   var DATA = dataEl ? JSON.parse(dataEl.textContent) : { races: [], runners: [] };

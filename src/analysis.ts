@@ -14,6 +14,20 @@ import type {
 } from './types.js';
 import { formatSeconds } from './util/time.js';
 
+/**
+ * 「出走者数」の推定値。エントリー(申込者)数ではなく、実際にコースに出た人数の
+ * 目安として、Start 地点があればその通過者数、無ければ馬返しの通過者数を使う
+ * （DNS はどちらにも現れないため、"エントリー" より実態に近い）。
+ * どちらの地点も無い大会（ゴール記録のみ等）は `totalRunners` にフォールバックする。
+ */
+export function starterCount(analysis: RaceAnalysis): number {
+  const start = analysis.checkpoints.find((c) => c.checkpoint.includes('Start'));
+  if (start) return start.totalPassers;
+  const umagaeshi = analysis.checkpoints.find((c) => c.checkpoint.includes('馬返し'));
+  if (umagaeshi) return umagaeshi.totalPassers;
+  return analysis.totalRunners;
+}
+
 /** "HH:MM(:SS)" を 00:00 からの秒に。失敗時 undefined。 */
 export function parseClock(hhmm: string | undefined): number | undefined {
   if (!hhmm) return undefined;

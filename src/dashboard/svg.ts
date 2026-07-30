@@ -225,7 +225,7 @@ function escBinLabel(cp: CheckpointFinishAnalysis): string {
 }
 
 /** きりの良い y 目盛を返す。 */
-function niceTicks(max: number, count: number): number[] {
+export function niceTicks(max: number, count: number): number[] {
   if (max <= 0) return [0];
   const raw = max / count;
   const mag = Math.pow(10, Math.floor(Math.log10(raw)));

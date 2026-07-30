@@ -16,6 +16,7 @@ import { analyze, buildWideTable, buildFinishRateTable } from './analysis.js';
 import { generateDashboard } from './dashboard/generate.js';
 import { generateIndexPage, type RaceIndexEntry } from './dashboard/indexPage.js';
 import { buildCrossRunnerData } from './dashboard/crossSearch.js';
+import { buildTrendRows } from './dashboard/trendChart.js';
 import { toCsv } from './util/csv.js';
 import { setQuiet, info, warn } from './util/logger.js';
 
@@ -202,7 +203,8 @@ program
     }
 
     const crossRunnerData = buildCrossRunnerData(crossEntries);
-    const html = generateIndexPage(entries, { title: opts.title, crossRunnerData });
+    const trendRows = buildTrendRows(entries);
+    const html = generateIndexPage(entries, { title: opts.title, crossRunnerData, trendRows });
     const outPath = opts.out ? resolve(process.cwd(), opts.out) : resolve(baseDir, 'index.html');
     await writeOut(outPath, html);
     console.error(`目次ページを生成しました: ${entries.length} レース`);
