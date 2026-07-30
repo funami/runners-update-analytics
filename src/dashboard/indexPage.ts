@@ -31,9 +31,10 @@ function raceCard(entry: RaceIndexEntry): string {
   const meta = [a.raceDate, a.startTime ? `号砲 ${a.startTime}` : ''].filter(Boolean).join(' ・ ');
   const href = `${entry.dir}/dashboard.html`;
   const finishOnly = a.checkpoints.length === 1;
+  const starters = starterCount(a);
   const kpis = finishOnly
     ? `<div class="ckpi"><div class="ckpi-v">${a.finishers}</div><div class="ckpi-l">記録あり選手数</div></div>`
-    : `<div class="ckpi"><div class="ckpi-v">${starterCount(a)}</div><div class="ckpi-l">出走者</div></div>
+    : `<div class="ckpi"><div class="ckpi-v">${starters.count}</div><div class="ckpi-l">${esc(starters.label)}</div></div>
       <div class="ckpi"><div class="ckpi-v">${a.finishers}</div><div class="ckpi-l">完走者</div></div>
       <div class="ckpi"><div class="ckpi-v">${pct(a.finishRate)}</div><div class="ckpi-l">完走率</div></div>`;
   return `<a class="card" href="${esc(href)}" data-dir="${esc(entry.dir)}">

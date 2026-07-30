@@ -154,6 +154,7 @@ export function generateDashboard(analysis: RaceAnalysis, dataset: SplitsDataset
   // ゴール記録のみ公開されている大会（中間関門・未完走者数が不明）は
   // エントリー数/完走率の表示を抑制する。
   const finishOnly = analysis.checkpoints.length === 1;
+  const starters = starterCount(analysis);
 
   const sections = analysis.checkpoints.map((c) => checkpointSection(c, finishOnly)).join('\n');
 
@@ -308,7 +309,7 @@ table.data.wide tr[data-bib].row-selected td{background:var(--hl-soft)}
 </header>
 
 <div class="kpis">
-  ${finishOnly ? '' : kpiCard('出走者', String(starterCount(analysis)))}
+  ${finishOnly ? '' : kpiCard(starters.label, String(starters.count))}
   ${kpiCard(finishOnly ? '記録あり選手数' : '完走者', String(analysis.finishers))}
   ${finishOnly ? '' : kpiCard('全体完走率', pct(analysis.finishRate))}
   ${kpiCard('地点数', String(analysis.checkpoints.length))}

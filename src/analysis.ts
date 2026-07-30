@@ -15,17 +15,19 @@ import type {
 import { formatSeconds } from './util/time.js';
 
 /**
- * 「出走者数」の推定値。エントリー(申込者)数ではなく、実際にコースに出た人数の
- * 目安として、Start 地点があればその通過者数、無ければ馬返しの通過者数を使う
- * （DNS はどちらにも現れないため、"エントリー" より実態に近い）。
+ * 「出走者数」の推定値とその表示ラベル。エントリー(申込者)数ではなく、
+ * 実際にコースに出た人数の目安として、Start 地点があればその通過者数、
+ * 無ければ馬返しの通過者数を使う（DNS はどちらにも現れないため、
+ * "エントリー" より実態に近い）。ラベルは実際に使った地点に合わせる
+ * （Start 実測がある大会のみ「出走者」、それ以外は「馬返し通過者」）。
  * どちらの地点も無い大会（ゴール記録のみ等）は `totalRunners` にフォールバックする。
  */
-export function starterCount(analysis: RaceAnalysis): number {
+export function starterCount(analysis: RaceAnalysis): { count: number; label: string } {
   const start = analysis.checkpoints.find((c) => c.checkpoint.includes('Start'));
-  if (start) return start.totalPassers;
+  if (start) return { count: start.totalPassers, label: '出走者' };
   const umagaeshi = analysis.checkpoints.find((c) => c.checkpoint.includes('馬返し'));
-  if (umagaeshi) return umagaeshi.totalPassers;
-  return analysis.totalRunners;
+  if (umagaeshi) return { count: umagaeshi.totalPassers, label: '馬返し通過者' };
+  return { count: analysis.totalRunners, label: '出走者' };
 }
 
 /** "HH:MM(:SS)" を 00:00 からの秒に。失敗時 undefined。 */
