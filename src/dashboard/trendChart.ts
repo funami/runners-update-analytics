@@ -32,7 +32,6 @@ export function buildTrendRows(entries: { dir: string; analysis: RaceAnalysis }[
     .sort((a, b) => a.raceNumber - b.raceNumber);
 
   return withNumber.map(({ dir, analysis, raceNumber }) => {
-    const finishOnly = analysis.checkpoints.length === 1;
     const uma = findCheckpoint(analysis, '馬返し');
     const gogo = findCheckpoint(analysis, '五合目');
     const hachi = findCheckpoint(analysis, '八合目');
@@ -43,7 +42,7 @@ export function buildTrendRows(entries: { dir: string; analysis: RaceAnalysis }[
       umagaeshi: uma ? uma.totalPassers : null,
       gogome: gogo?.withinCutoff ?? null,
       hachigome: hachi?.withinCutoff ?? null,
-      finishers: finishOnly ? null : analysis.finishers,
+      finishers: analysis.finishers,
     };
   });
 }
