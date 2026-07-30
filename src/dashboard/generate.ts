@@ -300,7 +300,7 @@ table.data.wide tr[data-bib].row-selected td{background:var(--hl-soft)}
 <script id="rua-runner-data" type="application/json">${clientDataJson}</script>
 <div id="chart-tip" class="chart-tip" role="status" hidden></div>
 <div class="wrap">
-<a class="back-link" href="../index.html">← 大会一覧に戻る</a>
+<a id="back-link" class="back-link" href="../index.html">← 大会一覧に戻る</a>
 <header>
   <div>
     <h1>${esc(title)}${analysis.note ? ` <span class="note-badge">${esc(analysis.note)}</span>` : ''}</h1>
@@ -455,6 +455,13 @@ document.addEventListener('keydown', function (evt) {
       clearHighlights();
     }
     renderResult(runner);
+    var backLink = document.getElementById('back-link');
+    if (backLink) {
+      backLink.setAttribute(
+        'href',
+        runner ? ('../index.html?name=' + encodeURIComponent(runner.name)) : '../index.html',
+      );
+    }
   }
 
   function selectRunnerByBib(bib) {
