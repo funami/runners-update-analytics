@@ -129,6 +129,8 @@ h1{font-size:1.5rem;margin:0 0 4px}
 .search-suggest .item:last-child{border-bottom:none}
 .search-suggest .item:hover{background:var(--border)}
 .search-suggest .item-races{color:var(--ink2);font-size:.76rem;white-space:nowrap}
+.search-suggest .item-more{padding:8px 12px;color:var(--muted);font-size:.78rem;
+  font-style:italic;text-align:center}
 .filter-banner{display:none;align-items:center;gap:10px;background:var(--surface);
   border:1px solid var(--border);border-radius:10px;padding:8px 14px;margin:10px 0;font-size:.85rem}
 .filter-banner.active{display:flex}
@@ -211,31 +213,49 @@ ${cards}
   var bannerClear = document.getElementById('idx-filter-clear');
   var cards = Array.prototype.slice.call(document.querySelectorAll('.card'));
 
+  var SUGGEST_LIMIT = 30;
+
+  // 検索用に全角/半角スペースを除去して比較する（姓名の間にスペースが
+  // あってもなくても、全角でも半角でもヒットするように）。
+  function normalizeName(s) {
+    return String(s).split('').filter(function (ch) { return ch !== ' ' && ch !== '　'; }).join('');
+  }
+  var nameEntries = Object.keys(byName).map(function (n) {
+    return { name: n, norm: normalizeName(n) };
+  });
+
   function search(q) {
-    q = q.trim();
-    if (!q) return [];
-    var names = Object.keys(byName).filter(function (n) { return n.indexOf(q) !== -1; });
-    names.sort(function (a, b) {
-      var ea = a === q ? 0 : 1, eb = b === q ? 0 : 1;
+    var nq = normalizeName(q.trim());
+    if (!nq) return { names: [], total: 0 };
+    var all = nameEntries.filter(function (e) { return e.norm.indexOf(nq) !== -1; });
+    all.sort(function (a, b) {
+      var ea = a.norm === nq ? 0 : 1, eb = b.norm === nq ? 0 : 1;
       if (ea !== eb) return ea - eb;
-      return a.localeCompare(b, 'ja');
+      return a.name.localeCompare(b.name, 'ja');
     });
-    return names.slice(0, 30);
+    var names = all.map(function (e) { return e.name; });
+    return { names: names.slice(0, SUGGEST_LIMIT), total: names.length };
   }
 
-  function renderSuggestions(names) {
+  function renderSuggestions(result) {
+    var names = result.names, total = result.total;
     if (!names.length) {
       suggestBox.hidden = true;
       suggestBox.innerHTML = '';
       return;
     }
-    suggestBox.innerHTML = names.map(function (name) {
+    var itemsHtml = names.map(function (name) {
       var rows = byName[name];
       var nums = rows.map(function (row) { return raceLabel(row.r); });
       nums.sort(function (a, b) { return (Number(a) || 0) - (Number(b) || 0); });
       return '<div class="item" data-name="' + escHtml(name) + '"><span>' + escHtml(name) + '</span>' +
         '<span class="item-races">第' + nums.map(escHtml).join(',') + '回</span></div>';
     }).join('');
+    var overflow = total - names.length;
+    var moreHtml = overflow > 0
+      ? '<div class="item-more">他 ' + overflow + ' 名（もっと具体的に入力すると絞り込めます）</div>'
+      : '';
+    suggestBox.innerHTML = itemsHtml + moreHtml;
     suggestBox.hidden = false;
   }
 
