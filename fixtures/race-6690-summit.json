@@ -1,0 +1,12 @@
+{
+  "raceId": "6690",
+  "kind": "山頂総合",
+  "startTime": "07:00",
+  "checkpointCutoffs": {
+    "Finish": "4:30:00"
+  },
+  "runnetApi": {
+    "categoryKind": "general",
+    "categoryId": "1"
+  }
+}

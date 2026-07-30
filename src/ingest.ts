@@ -229,7 +229,9 @@ async function ingestFromRunnetApi(
     const loc = locations[i];
     const order = i + 1;
     const goal = loc.isFinish === true || i === locations.length - 1;
-    info(`checkpoint "${loc.name}": RUNNET API から取得 (location=${loc.id})`);
+    // 古い大会では地点名が空/空白のことがある（中間関門が無く Finish のみ記録）。
+    const name = loc.name.trim() || (goal ? 'Finish' : `地点${order}`);
+    info(`checkpoint "${name}": RUNNET API から取得 (location=${loc.id})`);
     const athletes = await fetchLocationAthletes(
       manifest.raceId,
       { kind, id: api.categoryId },
@@ -237,7 +239,7 @@ async function ingestFromRunnetApi(
       runnetOpts,
     );
     tables.push({
-      checkpoint: loc.name,
+      checkpoint: name,
       order,
       goal,
       kind: category.name,
