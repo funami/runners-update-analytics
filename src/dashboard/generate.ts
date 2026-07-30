@@ -540,6 +540,23 @@ document.addEventListener('keydown', function (evt) {
     var tr = evt.target.closest && evt.target.closest('tr[data-bib]');
     if (tr) selectRunnerByBib(tr.getAttribute('data-bib'));
   });
+
+  // URL の ?name= を受け取り、その選手を初期表示する（index.html からの遷移用）。
+  (function restoreFromUrl() {
+    var params = new URLSearchParams(location.search);
+    var wanted = params.get('name');
+    if (!wanted) return;
+    var norm = function (s) { return String(s).split('').filter(function (ch) { return ch !== ' ' && ch !== '　'; }).join(''); };
+    var match = RUNNERS.filter(function (r) { return r.name === wanted; })[0];
+    if (!match) {
+      var nw = norm(wanted);
+      match = RUNNERS.filter(function (r) { return norm(r.name) === nw; })[0];
+    }
+    if (!match) return;
+    if (input) input.value = match.name;
+    if (clearBtn) clearBtn.hidden = false;
+    selectRunner(match);
+  })();
 })();
 </script>
 </body>

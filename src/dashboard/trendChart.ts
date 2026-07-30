@@ -15,6 +15,8 @@ export interface TrendRow {
   hachigome: number | null;
   /** 完走者数（ゴール制限時間内）。記録がゴールのみの大会(finishOnly)は不明のため null。 */
   finishers: number | null;
+  /** 全体完走率(%)。出走者数が不明な大会(finishOnly)は null。 */
+  finishRatePct: number | null;
 }
 
 function findCheckpoint(analysis: RaceAnalysis, keyword: string) {
@@ -32,6 +34,7 @@ export function buildTrendRows(entries: { dir: string; analysis: RaceAnalysis }[
     .sort((a, b) => a.raceNumber - b.raceNumber);
 
   return withNumber.map(({ dir, analysis, raceNumber }) => {
+    const finishOnly = analysis.checkpoints.length === 1;
     const uma = findCheckpoint(analysis, '馬返し');
     const gogo = findCheckpoint(analysis, '五合目');
     const hachi = findCheckpoint(analysis, '八合目');
@@ -43,6 +46,7 @@ export function buildTrendRows(entries: { dir: string; analysis: RaceAnalysis }[
       gogome: gogo?.withinCutoff ?? null,
       hachigome: hachi?.withinCutoff ?? null,
       finishers: analysis.finishers,
+      finishRatePct: !finishOnly && analysis.finishRate != null ? analysis.finishRate * 100 : null,
     };
   });
 }
@@ -128,4 +132,58 @@ export function trendLineSvg(rows: TrendRow[]): string {
   );
 
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="大会回次ごとの関門通過者数・完走者数の推移" preserveAspectRatio="xMinYMin meet" class="chart">${parts.join('')}</svg>`;
+}
+
+/** 全体完走率(%)の棒グラフ（人数系列とは軸が異なるため別チャートに分離）。 */
+export function trendRateBarSvg(rows: TrendRow[]): string {
+  const W = 960;
+  const H = 200;
+  const m = { top: 16, right: 16, bottom: 40, left: 44 };
+  const iw = W - m.left - m.right;
+  const ih = H - m.top - m.bottom;
+  const n = rows.length;
+  const band = n > 0 ? iw / n : iw;
+  const barW = Math.max(1, Math.min(band - 6, 28));
+  const y = (v: number) => m.top + ih - (v / 100) * ih;
+
+  const parts: string[] = [];
+  for (const t of [0, 25, 50, 75, 100]) {
+    const yy = y(t);
+    const isMid = t === 50;
+    parts.push(
+      `<line x1="${m.left}" y1="${yy.toFixed(1)}" x2="${m.left + iw}" y2="${yy.toFixed(1)}" stroke="${
+        isMid ? 'var(--axis)' : 'var(--grid)'
+      }" stroke-width="1" ${isMid ? 'stroke-dasharray="4 3"' : ''}/>`,
+      `<text x="${m.left - 6}" y="${(yy + 3).toFixed(1)}" text-anchor="end" class="ax">${t}</text>`,
+    );
+  }
+
+  rows.forEach((r, i) => {
+    const cx = m.left + i * band + band / 2;
+    parts.push(
+      `<text x="${cx.toFixed(1)}" y="${H - m.bottom + 16}" text-anchor="middle" class="ax">${r.raceNumber}</text>`,
+    );
+    if (r.finishRatePct == null) return;
+    const x = cx - barW / 2;
+    const yy = y(r.finishRatePct);
+    const h = m.top + ih - yy;
+    const title = `第${r.raceNumber}回 完走率 ${r.finishRatePct.toFixed(1)}%`;
+    parts.push(
+      `<rect x="${x.toFixed(1)}" y="${yy.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(0, h).toFixed(
+        1,
+      )}" rx="1.5" fill="var(--c-rate)" class="mark" tabindex="0" data-tip="${esc(title)}" ` +
+        `onclick="showChartTip(event,this)" onkeydown="if(event.key==='Enter'||event.key===' '){showChartTip(event,this)}">` +
+        `<title>${esc(title)}</title></rect>`,
+    );
+  });
+
+  parts.push(
+    `<line x1="${m.left}" y1="${m.top + ih}" x2="${m.left + iw}" y2="${
+      m.top + ih
+    }" stroke="var(--axis)" stroke-width="1"/>`,
+    `<text x="${m.left}" y="12" class="axtitle">完走率(%)</text>`,
+    `<text x="${m.left + iw}" y="${H - 6}" text-anchor="end" class="ax">大会回次（第N回）</text>`,
+  );
+
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="大会回次ごとの全体完走率" preserveAspectRatio="xMinYMin meet" class="chart">${parts.join('')}</svg>`;
 }

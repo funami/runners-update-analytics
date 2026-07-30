@@ -5,7 +5,7 @@ import { esc } from './svg.js';
 import { weatherCompact } from './weather.js';
 import { starterCount } from '../analysis.js';
 import type { CrossRunnerData } from './crossSearch.js';
-import { trendLineSvg, TREND_SERIES, type TrendRow } from './trendChart.js';
+import { trendLineSvg, trendRateBarSvg, TREND_SERIES, type TrendRow } from './trendChart.js';
 
 function pct(v: number | null): string {
   return v == null ? '-' : `${(v * 100).toFixed(1)}%`;
@@ -55,6 +55,7 @@ function trendSectionHtml(rows: TrendRow[]): string {
   const legend = TREND_SERIES.map(
     (s) => `<span class="trend-legend-item"><span class="trend-sw" style="background:var(${s.colorVar})"></span>${esc(s.label)}</span>`,
   ).join('');
+  const rateLegend = `<span class="trend-legend-item"><span class="trend-sw" style="background:var(--c-rate)"></span>全体完走率(%)・棒グラフ</span>`;
   const bodyRows = rows
     .map(
       (r) => `<tr>
@@ -63,6 +64,7 @@ function trendSectionHtml(rows: TrendRow[]): string {
       <td class="num">${r.gogome ?? '-'}</td>
       <td class="num">${r.hachigome ?? '-'}</td>
       <td class="num">${r.finishers ?? '-'}</td>
+      <td class="num">${r.finishRatePct != null ? r.finishRatePct.toFixed(1) : '-'}</td>
     </tr>`,
     )
     .join('');
@@ -73,11 +75,16 @@ function trendSectionHtml(rows: TrendRow[]): string {
     <figure>
       ${trendLineSvg(rows)}
     </figure>
+    <figcaption>全体完走率（出走者数が不明な大会は非表示）</figcaption>
+    <div class="trend-legend">${rateLegend}</div>
+    <figure>
+      ${trendRateBarSvg(rows)}
+    </figure>
     <details>
       <summary>データ表（${rows.length} 大会）</summary>
       <div class="tbl-wrap">
       <table class="data">
-        <thead><tr><th>大会</th><th>馬返し通過</th><th>五合目関門通過</th><th>八合目関門通過</th><th>完走者(制限時間内)</th></tr></thead>
+        <thead><tr><th>大会</th><th>馬返し通過</th><th>五合目関門通過</th><th>八合目関門通過</th><th>完走者(制限時間内)</th><th>完走率(%)</th></tr></thead>
         <tbody>${bodyRows}</tbody>
       </table>
       </div>
@@ -112,7 +119,7 @@ export function generateIndexPage(
 :root{
   color-scheme: light dark;
   --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
-  --border:rgba(11,11,11,.10); --c-finish:#1baf7a;
+  --border:rgba(11,11,11,.10); --c-finish:#1baf7a; --c-rate:#2a78d6;
   --grid:#e1e0d9; --axis:#c3c2b7;
   --warn:#a15c00; --warn-soft:rgba(180,120,0,.14); --warn-border:rgba(180,120,0,.4);
   /* カテゴリカルパレット(dataviz スキル既定, スロット1/2/3/4) */
@@ -121,7 +128,7 @@ export function generateIndexPage(
 @media (prefers-color-scheme: dark){
   :root:where(:not([data-theme="light"])){
     --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
-    --border:rgba(255,255,255,.10); --c-finish:#199e70;
+    --border:rgba(255,255,255,.10); --c-finish:#199e70; --c-rate:#3987e5;
     --grid:#2c2c2a; --axis:#383835;
     --warn:#e0a53a; --warn-soft:rgba(224,165,58,.14); --warn-border:rgba(224,165,58,.4);
     --tr-1:#3987e5; --tr-2:#d95926; --tr-3:#199e70; --tr-4:#c98500;
@@ -129,7 +136,7 @@ export function generateIndexPage(
 }
 :root[data-theme="dark"]{
   --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
-  --border:rgba(255,255,255,.10); --c-finish:#199e70;
+  --border:rgba(255,255,255,.10); --c-finish:#199e70; --c-rate:#3987e5;
   --grid:#2c2c2a; --axis:#383835;
   --warn:#e0a53a; --warn-soft:rgba(224,165,58,.14); --warn-border:rgba(224,165,58,.4);
   --tr-1:#3987e5; --tr-2:#d95926; --tr-3:#199e70; --tr-4:#c98500;
@@ -137,6 +144,7 @@ export function generateIndexPage(
 :root[data-theme="light"]{
   --warn:#a15c00; --warn-soft:rgba(180,120,0,.14); --warn-border:rgba(180,120,0,.4);
   --tr-1:#2a78d6; --tr-2:#eb6834; --tr-3:#1baf7a; --tr-4:#eda100;
+  --c-rate:#2a78d6;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--ink);
@@ -365,7 +373,13 @@ document.addEventListener('keydown', function (evt) {
     document.querySelectorAll('.card .runner-summary').forEach(function (el) { el.remove(); });
   }
 
-  function selectRunnerName(name) {
+  function cardHref(card, name) {
+    var dir = card.getAttribute('data-dir');
+    var base = dir + '/dashboard.html';
+    return name ? (base + '?name=' + encodeURIComponent(name)) : base;
+  }
+
+  function selectRunnerName(name, opts) {
     var rows = byName[name];
     if (!rows || !rows.length) return;
     var byDir = {};
@@ -381,6 +395,7 @@ document.addEventListener('keydown', function (evt) {
       }
       card.hidden = false;
       shown++;
+      card.setAttribute('href', cardHref(card, name));
       var race = RACES[row.r];
       var chips = (race.checkpoints || []).map(function (cp) {
         var g = row.splits[cp];
@@ -393,12 +408,26 @@ document.addEventListener('keydown', function (evt) {
     });
     bannerText.textContent = '「' + name + '」が出場した ' + shown + ' 大会のみ表示中';
     banner.classList.add('active');
+    if (!opts || !opts.skipUrl) {
+      try {
+        var url = location.pathname + '?name=' + encodeURIComponent(name);
+        history.replaceState(null, '', url);
+      } catch (e) { /* file:// 等でURL更新が拒否される場合は無視（絞り込み自体は有効） */ }
+    }
   }
 
-  function clearFilter() {
+  function clearFilter(opts) {
     clearSummaries();
-    cards.forEach(function (card) { card.hidden = false; });
+    cards.forEach(function (card) {
+      card.hidden = false;
+      card.setAttribute('href', cardHref(card, null));
+    });
     banner.classList.remove('active');
+    if (!opts || !opts.skipUrl) {
+      try {
+        history.replaceState(null, '', location.pathname);
+      } catch (e) { /* file:// 等でURL更新が拒否される場合は無視 */ }
+    }
   }
 
   if (input) {
@@ -439,6 +468,22 @@ document.addEventListener('keydown', function (evt) {
   document.addEventListener('click', function (evt) {
     if (suggestBox && !suggestBox.hidden && !evt.target.closest('.search-box')) suggestBox.hidden = true;
   });
+
+  // URL の ?name= から選手フィルタを復元する（パーマリンク）。
+  (function restoreFromUrl() {
+    var params = new URLSearchParams(location.search);
+    var wanted = params.get('name');
+    if (!wanted) return;
+    var name = byName[wanted] ? wanted : null;
+    if (!name) {
+      var norm = normalizeName(wanted);
+      var match = nameEntries.filter(function (e) { return e.norm === norm; })[0];
+      if (match) name = match.name;
+    }
+    if (!name) return;
+    if (input) { input.value = name; clearBtn.hidden = false; }
+    selectRunnerName(name, { skipUrl: true });
+  })();
 })();
 </script>
 </body>
