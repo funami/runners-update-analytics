@@ -35,10 +35,9 @@ function raceCard(entry: RaceIndexEntry): string {
       <div class="ckpi"><div class="ckpi-v">${pct(a.finishRate)}</div><div class="ckpi-l">完走率</div></div>`;
   return `<a class="card" href="${esc(href)}">
     <div class="card-head">
-      <h2>${esc(title)}</h2>
+      <h2>${esc(title)}${a.note ? ` <span class="note-badge">${esc(a.note)}</span>` : ''}</h2>
       <span class="arrow">→</span>
     </div>
-    ${a.note ? `<p class="card-note"><span class="note-badge">${esc(a.note)}</span></p>` : ''}
     <p class="card-meta">${esc(meta)}</p>
     ${weatherLine(a.weather)}
     <div class="card-kpis">
