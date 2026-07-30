@@ -231,6 +231,10 @@ export interface CheckpointFinishAnalysis {
    * 見つからなければ null。
    */
   finishRate50CutoffSec: number | null;
+  /** この地点の公式な関門制限時間（グロス秒）。`RaceManifest.checkpointCutoffs` から解決される。 */
+  cutoffSeconds?: number;
+  /** 制限時間内にこの地点を通過した人数（`cutoffSeconds` が指定されている場合のみ）。 */
+  withinCutoff?: number;
 }
 
 /** レース全体の分析結果（ダッシュボード入力）。 */

@@ -54,12 +54,18 @@ function checkpointSection(cp: RaceAnalysis['checkpoints'][number], finishOnly: 
     )
     .join('');
 
+  const cutoffKpi =
+    cp.withinCutoff != null
+      ? kpiCard('関門通過者数', String(cp.withinCutoff), `制限時間 ${formatSeconds(cp.cutoffSeconds)} 以内`)
+      : '';
+
   const kpis = finishOnly
-    ? kpiCard('記録あり選手数', String(cp.totalPassers))
+    ? `${kpiCard('記録あり選手数', String(cp.totalPassers))}${cutoffKpi}`
     : `${kpiCard('通過者数', String(cp.totalPassers))}
       ${kpiCard('完走者数', String(cp.totalFinishers))}
       ${kpiCard('未完走者数', String(cp.totalPassers - cp.totalFinishers))}
-      ${kpiCard('通過者の完走率', pct(cp.overallFinishRate))}`;
+      ${kpiCard('通過者の完走率', pct(cp.overallFinishRate))}
+      ${cutoffKpi}`;
 
   return `<section class="cp">
     <h2>${esc(cp.checkpoint)}${cp.goal ? ' <span class="badge">ゴール</span>' : ''}</h2>

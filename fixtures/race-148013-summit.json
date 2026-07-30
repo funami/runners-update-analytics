@@ -3,7 +3,9 @@
   "kind": "山頂総合",
   "startTime": "07:00",
   "checkpointCutoffs": {
-    "Finish": "4:30:00"
+    "Finish": "4:30:00",
+    "五合目通過": "2:15:00",
+    "八合目通過": "4:00:00"
   },
   "runnetApi": {
     "categoryKind": "general",

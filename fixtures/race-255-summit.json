@@ -5,9 +5,16 @@
   "locationNames": {
     "goal": "Finish"
   },
-  "locationOrder": ["馬返し通過", "五合目通過", "八合目通過", "Finish"],
+  "locationOrder": [
+    "馬返し通過",
+    "五合目通過",
+    "八合目通過",
+    "Finish"
+  ],
   "checkpointCutoffs": {
-    "Finish": "4:30:00"
+    "Finish": "4:30:00",
+    "五合目通過": "2:20:00",
+    "八合目通過": "4:00:00"
   },
   "runnetApi": {
     "categoryKind": "general",

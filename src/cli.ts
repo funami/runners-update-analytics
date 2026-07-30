@@ -15,6 +15,7 @@ import { fetchRaceMeta } from './scraper/runnetApi.js';
 import { analyze, buildWideTable, buildFinishRateTable } from './analysis.js';
 import { generateDashboard } from './dashboard/generate.js';
 import { generateIndexPage, type RaceIndexEntry } from './dashboard/indexPage.js';
+import { buildCrossRunnerData } from './dashboard/crossSearch.js';
 import { toCsv } from './util/csv.js';
 import { setQuiet, info, warn } from './util/logger.js';
 
@@ -172,8 +173,12 @@ program
     const children = await readdir(baseDir, { withFileTypes: true });
 
     const entries: RaceIndexEntry[] = [];
+    const crossEntries: { dir: string; dataset: SplitsDataset }[] = [];
     for (const child of children) {
       if (!child.isDirectory()) continue;
+      // このツールが生成したレースフォルダ(race-<raceId>)のみを対象にする。
+      // 他ツール/他パイプラインの出力フォルダが同じ out/ 配下にあっても混在させない。
+      if (!/^race-\d+$/.test(child.name)) continue;
       const analysisPath = join(baseDir, child.name, 'analysis.json');
       try {
         const text = await readFile(analysisPath, 'utf8');
@@ -181,6 +186,14 @@ program
         entries.push({ dir: child.name, analysis });
       } catch {
         warn(`スキップ: ${child.name}（analysis.json が見つかりません）`);
+        continue;
+      }
+      try {
+        const datasetPath = join(baseDir, child.name, 'dataset.json');
+        const text = await readFile(datasetPath, 'utf8');
+        crossEntries.push({ dir: child.name, dataset: JSON.parse(text) as SplitsDataset });
+      } catch {
+        warn(`${child.name}: dataset.json が見つからず、選手横断検索の対象から除外します。`);
       }
     }
 
@@ -188,7 +201,8 @@ program
       throw new Error(`${baseDir} 配下に analysis.json を含むレースフォルダが見つかりません。`);
     }
 
-    const html = generateIndexPage(entries, { title: opts.title });
+    const crossRunnerData = buildCrossRunnerData(crossEntries);
+    const html = generateIndexPage(entries, { title: opts.title, crossRunnerData });
     const outPath = opts.out ? resolve(process.cwd(), opts.out) : resolve(baseDir, 'index.html');
     await writeOut(outPath, html);
     console.error(`目次ページを生成しました: ${entries.length} レース`);

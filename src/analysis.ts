@@ -45,6 +45,7 @@ function analyzeCheckpoint(
   runners: RunnerSplits[],
   binSec: number,
   startSec: number | undefined,
+  cutoffSeconds: number | undefined,
 ): CheckpointFinishAnalysis {
   // この地点を通過した選手のみ
   const passers = runners
@@ -53,6 +54,8 @@ function analyzeCheckpoint(
 
   const totalPassers = passers.length;
   const totalFinishers = passers.filter((p) => p.finished).length;
+  const withinCutoff =
+    cutoffSeconds != null ? passers.filter((p) => p.gross <= cutoffSeconds).length : undefined;
 
   const bins = new Map<number, { passers: number; finishers: number }>();
   for (const p of passers) {
@@ -95,6 +98,8 @@ function analyzeCheckpoint(
     overallFinishRate: totalPassers > 0 ? totalFinishers / totalPassers : null,
     bins: binList,
     finishRate50CutoffSec: cutoff,
+    cutoffSeconds,
+    withinCutoff,
   };
 }
 
@@ -107,10 +112,13 @@ export function analyze(dataset: SplitsDataset, binMinutes = 1): RaceAnalysis {
   const totalRunners = runners.length;
   const finishers = runners.filter((r) => r.finished).length;
 
+  const cutoffByCheckpoint = new Map(dataset.tables.map((t) => [t.checkpoint, t.cutoffSeconds]));
   const checkpoints = dataset.checkpoints
     .slice()
     .sort((a, b) => a.order - b.order)
-    .map((c) => analyzeCheckpoint(c.name, c.order, c.goal, runners, binSec, startSec));
+    .map((c) =>
+      analyzeCheckpoint(c.name, c.order, c.goal, runners, binSec, startSec, cutoffByCheckpoint.get(c.name)),
+    );
 
   const notes = [...dataset.notes];
   if (startSec == null) {
